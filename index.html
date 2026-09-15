@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
+  <title>Particle Life v23 (adaptive canvas)</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: black;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border: none;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particleCanvas" width="1000" height="620"></canvas>
+  <script>
+    'use strict';
+    const canvas = document.getElementById('particleCanvas');
+
+    // ===== 畫布尺寸（CSS px；模擬座標單位）=====
+    // 非全螢幕：固定 1000×620（需要時只縮小顯示，不改模擬尺寸）
+    // 全螢幕／standalone：跟著視窗走，粒子數依固定密度換算
+    const WINDOWED_WIDTH = 1000;
+    const WINDOWED_HEIGHT = 620;
+    const DENSITY = 3000 / (WINDOWED_WIDTH * WINDOWED_HEIGHT);   // 原設計密度
+    const MAX_DPR = 2;
+    const MAX_BACKING_PIXELS = 8e6;   // 後備緩衝上限（MSAA 4x 下約 128 MB），超過就降 DPR
+    let CANVAS_WIDTH = WINDOWED_WIDTH;
+    let CANVAS_HEIGHT = WINDOWED_HEIGHT;
+    let CANVAS_WIDTH_MINUS_EDGE = CANVAS_WIDTH - 5;
+    let CANVAS_HEIGHT_MINUS_EDGE = CANVAS_HEIGHT - 5;
+    let DPR = 1;
+    const NEARBY_RADIUS_SQUARED = 100 * 100;
+    const MIN_DISTANCE_SQUARED = 7 * 7;
+    const MIN_DISTANCE_RIPPLE_SQUARED = 3 * 3;
+    const CLUSTER_RADIUS_SQUARED = 50 * 50;
+    const DARK_MATTER_RADIUS_SQUARED = 30 * 30;
+    const PI2 = Math.PI * 2;
+
+    // ===== 時間基準：固定步長 =====
+    const STEP_MS = 1000 / 60;
+    const MAX_STEPS_PER_FRAME = 3;
+    const MAX_FRAME_DT = 100;
+
+    // ===== 色系系統（OKLCH 色盤旋轉）=====
+    const TYPES = 12;
+    const SLOT_L  = [0.3606,0.4826,0.7707,0.5893,0.8502,0.5067,0.5967,0.7506,0.4955,0.6598,0.4104,0.7909];
+    const SLOT_C  = [0.0948,0.1272,0.1777,0.1146,0.1043,0.0509,0.1108,0.0565,0.0896,0.0495,0.0785,0.0669];
+    const SLOT_DH = [0.40,0.57,-5.97,-14.40,-11.23,26.23,-1.50,16.17,-1.81,-8.19,3.12,-6.85];
+
+    const PALETTE_NAMES     = ['綠', '黃/棕', '紅', '藍'];
+    const PALETTE_BASE_HUE  = [128, 80, 25, -96];
+    const HUE_STEP          = [48, 55, 121, 136];
+
+    const BANGS_PER_SHIFT      = 10;
+    const PALETTE_SHIFT_DURATION = 30000;
+
+    let paletteStage      = 0;
+    let paletteHue        = PALETTE_BASE_HUE[0];
+    let paletteShifting   = false;
+    let paletteShiftStart = 0;
+    let paletteHueFrom    = paletteHue;
+    let paletteHueTo      = paletteHue;
+    let bangsSinceShift   = 0;
+
+    const COLORS    = new Array(TYPES).fill('#000000');
+    const COLOR_RGB = new Array(TYPES);
+    for (let i = 0; i < TYPES; i++) COLOR_RGB[i] = { r: 0, g: 0, b: 0 };
+    let colorsDirty = true;   // GPU backend 用：顏色變了才上傳
+
+    function oklchToLinear(L, C, hDeg, out) {
+      const h = hDeg * Math.PI / 180;
+      const a = C * Math.cos(h);
+      const b = C * Math.sin(h);
+      const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+      const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+      const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+      const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+      out[0] =  4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+      out[1] = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+      out[2] = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+    }
+
+    const _lin = [0, 0, 0];
+    function inGamut(v) {
+      return v[0] >= -0.0008 && v[0] <= 1.0008 &&
+             v[1] >= -0.0008 && v[1] <= 1.0008 &&
+             v[2] >= -0.0008 && v[2] <= 1.0008;
+    }
+
+    function linToSrgb255(c) {
+      if (c < 0) c = 0; else if (c > 1) c = 1;
+      const v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+      return Math.round(v * 255);
+    }
+
+    const HEX2 = [];
+    for (let i = 0; i < 256; i++) HEX2.push(i.toString(16).padStart(2, '0'));
+
+    function rebuildColors() {
+      for (let t = 0; t < TYPES; t++) {
+        const L = SLOT_L[t], h = paletteHue + SLOT_DH[t];
+        let C = SLOT_C[t];
+        oklchToLinear(L, C, h, _lin);
+        if (!inGamut(_lin)) {
+          let lo = 0, hi = C;
+          for (let k = 0; k < 14; k++) {
+            const mid = (lo + hi) * 0.5;
+            oklchToLinear(L, mid, h, _lin);
+            if (inGamut(_lin)) lo = mid; else hi = mid;
+          }
+          C = lo;
+        }
+        oklchToLinear(L, C, h, _lin);
+        const r = linToSrgb255(_lin[0]), g = linToSrgb255(_lin[1]), b = linToSrgb255(_lin[2]);
+        const rgb = COLOR_RGB[t];
+        rgb.r = r; rgb.g = g; rgb.b = b;
+        COLORS[t] = '#' + HEX2[r] + HEX2[g] + HEX2[b];
+      }
+      colorsDirty = true;
+    }
+
+    function noteBangForPalette(now) {
+      if (paletteShifting) return;
+      if (++bangsSinceShift >= BANGS_PER_SHIFT) {
+        bangsSinceShift = 0;
+        paletteShifting = true;
+        paletteShiftStart = now;
+        paletteHueFrom = paletteHue;
+        paletteHueTo = paletteHue - HUE_STEP[paletteStage];
+      }
+    }
+
+    function updatePalette(now) {
+      if (!paletteShifting) return;
+      const t = Math.min((now - paletteShiftStart) / PALETTE_SHIFT_DURATION, 1);
+      paletteHue = paletteHueFrom + (paletteHueTo - paletteHueFrom) * easeInOutSine(t);
+      if (t >= 1) {
+        paletteShifting = false;
+        paletteStage = (paletteStage + 1) % 4;
+        paletteHue = paletteHueTo;
+        if (paletteStage === 0) paletteHue += 360;
+      }
+      rebuildColors();
+    }
+
+    // 粒子數：預設依 DENSITY × 面積換算（上限依 backend），?n=12345 可固定指定、?density=0.005 可改密度
+    const URL_PARAMS = new URLSearchParams(location.search);
+    const MANUAL_N = parseInt(URL_PARAMS.get('n'), 10) || 0;
+    const DENSITY_OVERRIDE = parseFloat(URL_PARAMS.get('density')) || 0;
+    const MAX_N_GPU = 60000;
+    const MAX_N_CPU = 3500;
+    const MAX_FORCE = 0.2;
+    const FRICTION = 0.68;
+    const CHANGE_INTERVAL = 60000;
+    const TRANSITION_DURATION = 30000;
+    const REPULSION_STRENGTH = 0.5;
+    const COINCIDENT_JITTER = 0.3;
+
+    // ===== 極限坍縮 / 大爆炸 事件 =====
+    const BANG_THRESHOLD = 660;
+    const COLLAPSE_FRAMES = 70;
+    const EXPLODE_FRAMES = 40;
+    const COLLAPSE_PULL_BASE = 0.004;
+    const COLLAPSE_PULL_GAIN = 0.25;
+    const EXPLODE_SPEED = 14;
+    const EXPLODE_TAIL = 1.5;
+    const EXPLODE_JITTER = 0.15;
+    const EXPLODE_ANGLE_JITTER = 0.3;
+    const BANG_TRANSITION_DURATION = 8000;
+
+    const TYPE_COLLAPSE_FACTOR = [1.0, 0.35, 0.7, 0.5, 0.9, 0.3, 0.6, 0.8, 0.45, 1.0, 0.55, 0.75];
+    const TYPE_BLAST_FACTOR    = [0.4, 1.0, 0.6, 0.85, 0.3, 1.0, 0.5, 0.7, 0.95, 0.35, 0.8, 0.55];
+
+    // ===== SoA 粒子資料（CPU 端）=====
+    // CPU backend：這就是模擬本體。
+    // GPU backend：posX/posY 是每 500 ms 讀回的快照，只供叢集偵測；pEvent 是 CPU 鏡像（權威）。
+    // 全部宣告為 let：resize 時由 allocateWorld 重配，函式透過閉包看到新陣列。
+    let N = 0;
+    let posX, posY, velX, velY, forceX, forceY, pType, pClustered, pInRipple, pEvent, pullX, pullY;
+    let drawOrder, typeStart;
+
+    function targetParticleCount(w, h) {
+      if (MANUAL_N > 0) return MANUAL_N;
+      const density = DENSITY_OVERRIDE > 0 ? DENSITY_OVERRIDE : DENSITY;
+      const cap = backend && backend.name === 'webgpu' ? MAX_N_GPU : MAX_N_CPU;
+      return Math.max(100, Math.min(cap, Math.round(density * w * h)));
+    }
+
+    // 依新尺寸重配所有粒子與網格陣列。carry=true 時保留既有粒子（位置等比縮放），不足補隨機、過多砍尾。
+    function allocateWorld(w, h, n, carry) {
+      const oldN = N, oldW = CANVAS_WIDTH, oldH = CANVAS_HEIGHT;
+      const o = { posX, posY, velX, velY, pType };
+      CANVAS_WIDTH = w; CANVAS_HEIGHT = h;
+      CANVAS_WIDTH_MINUS_EDGE = w - 5; CANVAS_HEIGHT_MINUS_EDGE = h - 5;
+      N = n;
+
+      posX = new Float32Array(N); posY = new Float32Array(N);
+      velX = new Float32Array(N); velY = new Float32Array(N);
+      forceX = new Float32Array(N); forceY = new Float32Array(N);
+      pType = new Uint8Array(N);
+      pClustered = new Uint8Array(N); pInRipple = new Uint8Array(N); pEvent = new Uint8Array(N);
+      pullX = new Float32Array(N); pullY = new Float32Array(N);
+
+      const keep = carry ? Math.min(oldN, N) : 0;
+      if (keep > 0) {
+        const sx = w / oldW, sy = h / oldH;
+        for (let i = 0; i < keep; i++) {
+          posX[i] = o.posX[i] * sx; posY[i] = o.posY[i] * sy;
+          velX[i] = o.velX[i]; velY[i] = o.velY[i];
+          pType[i] = o.pType[i];
+        }
+      }
+      for (let i = keep; i < N; i++) {
+        posX[i] = Math.random() * w;
+        posY[i] = Math.random() * h;
+        velX[i] = Math.random() * 2 - 1;
+        velY[i] = Math.random() * 2 - 1;
+        pType[i] = (Math.random() * TYPES) | 0;
+      }
+
+      drawOrder = new Int32Array(N);
+      for (let i = 0; i < N; i++) drawOrder[i] = i;
+      drawOrder.sort((a, b) => pType[a] - pType[b]);
+      typeStart = new Int32Array(TYPES + 1);
+      for (let i = 0; i < N; i++) typeStart[pType[i] + 1]++;
+      for (let t = 0; t < TYPES; t++) typeStart[t + 1] += typeStart[t];
+
+      allocateGrid();
+      // 事件與漣漪的幾何在縮放後已無意義，全部清空；矩陣與色系狀態保留
+      bangEvents.length = 0;
+      ripples.length = 0;
+      rippleSources.length = 0;
+      darkMatterParticles.length = 0;
+      lastClusterCheckTime = -Infinity;
+    }
+
+    // ===== 互動矩陣 =====
+    function fillRandomMatrix(m) {
+      for (let i = 0; i < m.length; i++) {
+        m[i] = Math.random() * 2 * MAX_FORCE - MAX_FORCE;
+      }
+    }
+
+    const oldMatrix = new Float32Array(TYPES * TYPES);
+    const newMatrix = new Float32Array(TYPES * TYPES);
+    const INTERACTION_MATRIX = new Float32Array(TYPES * TYPES);
+    fillRandomMatrix(oldMatrix);
+    fillRandomMatrix(newMatrix);
+    INTERACTION_MATRIX.set(oldMatrix);
+
+    let lastChangeTime = 0;
+    let transitionStartTime = 0;
+    let transitionDuration = TRANSITION_DURATION;
+    let matrixTransitioning = true;
+
+    function easeInOutSine(t) {
+      return -(Math.cos(Math.PI * t) - 1) / 2;
+    }
+
+    function updateInteractionMatrix(now) {
+      if (!matrixTransitioning) {
+        if (now - lastChangeTime <= CHANGE_INTERVAL) return;
+        lastChangeTime = now;
+        transitionStartTime = now;
+        transitionDuration = TRANSITION_DURATION;
+        oldMatrix.set(newMatrix);
+        fillRandomMatrix(newMatrix);
+        matrixTransitioning = true;
+      }
+      const t = Math.min((now - transitionStartTime) / transitionDuration, 1);
+      const smoothT = easeInOutSine(t);
+      for (let i = 0; i < INTERACTION_MATRIX.length; i++) {
+        INTERACTION_MATRIX[i] = oldMatrix[i] * (1 - smoothT) + newMatrix[i] * smoothT;
+      }
+      if (t >= 1) matrixTransitioning = false;
+    }
+
+    // 大爆炸的共同副作用（兩個 backend 共用）：矩陣重寫 + 色系計數
+    function onBigBang(now) {
+      oldMatrix.set(INTERACTION_MATRIX);
+      fillRandomMatrix(newMatrix);
+      transitionStartTime = now;
+      transitionDuration = BANG_TRANSITION_DURATION;
+      lastChangeTime = now;
+      matrixTransitioning = true;
+      noteBangForPalette(now);
+    }
+
+    // ===== 空間網格（CPU；CPU backend 每步用，GPU backend 讀回後叢集偵測用）=====
+    const GRID_SIZE = 50;
+    let GRID_WIDTH = 0, GRID_HEIGHT = 0, NUM_CELLS = 0;
+    let cellStarts, cellCursor, cellParticles, particleCell;
+    let clusterProcessed, clusterMembers;
+
+    function allocateGrid() {
+      GRID_WIDTH = Math.ceil(CANVAS_WIDTH / GRID_SIZE);
+      GRID_HEIGHT = Math.ceil(CANVAS_HEIGHT / GRID_SIZE);
+      NUM_CELLS = GRID_WIDTH * GRID_HEIGHT;
+      cellStarts = new Int32Array(NUM_CELLS + 1);
+      cellCursor = new Int32Array(NUM_CELLS);
+      cellParticles = new Int32Array(N);
+      particleCell = new Int32Array(N);
+      clusterProcessed = new Uint8Array(N);
+      clusterMembers = new Int32Array(N);
+    }
+
+    function rebuildGrid() {
+      cellStarts.fill(0);
+      for (let i = 0; i < N; i++) {
+        if (pEvent[i] === 2) { particleCell[i] = -1; continue; }
+        let gx = (posX[i] / GRID_SIZE) | 0;
+        let gy = (posY[i] / GRID_SIZE) | 0;
+        if (gx >= GRID_WIDTH) gx = GRID_WIDTH - 1;
+        if (gy >= GRID_HEIGHT) gy = GRID_HEIGHT - 1;
+        const c = gy * GRID_WIDTH + gx;
+        particleCell[i] = c;
+        cellStarts[c + 1]++;
+      }
+      for (let c = 0; c < NUM_CELLS; c++) {
+        cellStarts[c + 1] += cellStarts[c];
+        cellCursor[c] = cellStarts[c];
+      }
+      for (let i = 0; i < N; i++) {
+        const c = particleCell[i];
+        if (c < 0) continue;
+        cellParticles[cellCursor[c]++] = i;
+      }
+    }
+
+    // ===== 叢集偵測（共用；依賴 posX/posY/pEvent 與 CPU grid）=====
+    let backend = null;   // 稍後決定：{ triggerCollapse, step, render }
+
+    function updateClusters() {
+      pClustered.fill(0);
+      clusterProcessed.fill(0);
+      const clusters = [];
+
+      for (let i = 0; i < N; i++) {
+        if (clusterProcessed[i] || pEvent[i]) continue;
+
+        const xi = posX[i], yi = posY[i];
+        let memberCount = 0;
+        clusterMembers[memberCount++] = i;
+        clusterProcessed[i] = 1;
+
+        const gx = (xi / GRID_SIZE) | 0;
+        const gy = (yi / GRID_SIZE) | 0;
+        let xMin = gx - 1; if (xMin < 0) xMin = 0;
+        let xMax = gx + 1; if (xMax > GRID_WIDTH - 1) xMax = GRID_WIDTH - 1;
+        let yMin = gy - 1; if (yMin < 0) yMin = 0;
+        let yMax = gy + 1; if (yMax > GRID_HEIGHT - 1) yMax = GRID_HEIGHT - 1;
+
+        for (let cy = yMin; cy <= yMax; cy++) {
+          const rowOffset = cy * GRID_WIDTH;
+          for (let cx = xMin; cx <= xMax; cx++) {
+            const c = rowOffset + cx;
+            const end = cellStarts[c + 1];
+            for (let s = cellStarts[c]; s < end; s++) {
+              const j = cellParticles[s];
+              if (clusterProcessed[j] || pEvent[j]) continue;
+              const dx = posX[j] - xi;
+              const dy = posY[j] - yi;
+              if (dx * dx + dy * dy < CLUSTER_RADIUS_SQUARED) {
+                clusterMembers[memberCount++] = j;
+                clusterProcessed[j] = 1;
+              }
+            }
+          }
+        }
+
+        if (memberCount >= BANG_THRESHOLD) {
+          backend.triggerCollapse(clusterMembers.slice(0, memberCount));
+          continue;
+        }
+
+        if (memberCount >= 300) {
+          let centerX = 0, centerY = 0;
+          for (let m = 0; m < memberCount; m++) {
+            const idx = clusterMembers[m];
+            pClustered[idx] = 1;
+            centerX += posX[idx];
+            centerY += posY[idx];
+          }
+          clusters.push({ x: centerX / memberCount, y: centerY / memberCount });
+        }
+      }
+      return clusters;
+    }
+
+
+    // ===== 漣漪與來源追蹤（共用）=====
+    class Ripple {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 0;
+        this.maxRadius = 300;
+        this.speed = 2;
+        this.opacity = 0.8;
+      }
+      update() {
+        this.radius += this.speed;
+        this.opacity = 0.8 * (1 - this.radius / this.maxRadius);
+        return this.opacity > 0;
+      }
+    }
+
+    const bangEvents = [];
+    const ripples = [];
+    const rippleSources = [];
+    const RIPPLE_MATCH_RADIUS_SQUARED = 50 * 50;
+    const RIPPLE_SOURCE_EXPIRE = 10000;
+    const RIPPLE_COOLDOWN = 5000;
+    const CLUSTER_CHECK_INTERVAL = 500;
+    let lastClusterCheckTime = -Infinity;
+
+    // 一次偵測結果 → 更新來源名單。now 是這次偵測所屬的時間戳。
+    function applyClusters(clusters, now) {
+      lastClusterCheckTime = now;
+      for (const c of clusters) {
+        let best = null, bestD2 = RIPPLE_MATCH_RADIUS_SQUARED;
+        for (const src of rippleSources) {
+          if (src.lastSeen === now) continue;
+          const dx = src.x - c.x, dy = src.y - c.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD2) { bestD2 = d2; best = src; }
+        }
+        if (best) {
+          best.x = c.x; best.y = c.y; best.lastSeen = now;
+        } else {
+          rippleSources.push({ x: c.x, y: c.y, lastRipple: -Infinity, lastSeen: now });
+        }
+      }
+      for (let i = rippleSources.length - 1; i >= 0; i--) {
+        if (now - rippleSources[i].lastSeen > RIPPLE_SOURCE_EXPIRE) rippleSources.splice(i, 1);
+      }
+    }
+
+    function emitAndAdvanceRipples(now) {
+      for (const src of rippleSources) {
+        if (src.lastSeen !== lastClusterCheckTime) continue;
+        if (now - src.lastRipple >= RIPPLE_COOLDOWN) {
+          src.lastRipple = now;
+          ripples.push(new Ripple(src.x, src.y));
+          if (Math.random() < 0.05) {
+            darkMatterParticles.push(new DarkMatterParticle(src.x, src.y, now));
+          }
+        }
+      }
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        if (!ripples[i].update()) ripples.splice(i, 1);
+      }
+    }
+
+    // ===== 暗物質（共用：自身運動在 CPU；對粒子的推力由各 backend 實作）=====
+    class DarkMatterParticle {
+      constructor(x, y, now) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 20;
+        this.vy = (Math.random() - 0.5) * 20;
+        this.radius = 2;
+        this.lifetime = 5000;
+        this.activeTime = 2000;
+        this.creationTime = now;
+        this.repulsion = 0;   // 0 = 尚未啟動
+      }
+      move(now) {
+        this.vx += (Math.random() - 0.5) * 10;
+        this.vy += (Math.random() - 0.5) * 10;
+        this.vx = Math.max(-10, Math.min(10, this.vx));
+        this.vy = Math.max(-10, Math.min(10, this.vy));
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0) this.x = 0, this.vx *= -1;
+        if (this.x > CANVAS_WIDTH) this.x = CANVAS_WIDTH, this.vx *= -1;
+        if (this.y < 0) this.y = 0, this.vy *= -1;
+        if (this.y > CANVAS_HEIGHT) this.y = CANVAS_HEIGHT, this.vy *= -1;
+
+        const age = now - this.creationTime;
+        if (age < this.activeTime) { this.repulsion = 0; return; }
+        const timeFactor = Math.exp((age - this.activeTime) / 1000) - 1;
+        this.repulsion = 1 + timeFactor * 10;
+      }
+      isExpired(now) {
+        return now - this.creationTime > this.lifetime;
+      }
+    }
+    const darkMatterParticles = [];
+
+    // ===================================================================
+    // CPU backend（= v21，Canvas 2D）
+    // ===================================================================
+    function createCpuBackend() {
+      const ctx = canvas.getContext('2d');
+
+      const PAIR_OFF_X = new Int8Array([1, 2, -2, -1, 0, 1, 2, -2, -1, 0, 1, 2]);
+      const PAIR_OFF_Y = new Int8Array([0, 0,  1,  1, 1, 1, 1,  2,  2, 2, 2, 2]);
+      const PAIR_OFF_COUNT = 12;
+
+      function pairRange(i, xi, yi, ti, ri, bStart, bEnd) {
+        const rowI = ti * TYPES;
+        const minD2i = ri ? MIN_DISTANCE_RIPPLE_SQUARED : MIN_DISTANCE_SQUARED;
+        const minDi = ri ? 3 : 7;
+        let fx = 0, fy = 0;
+
+        for (let s2 = bStart; s2 < bEnd; s2++) {
+          const j = cellParticles[s2];
+          const dx = posX[j] - xi, dy = posY[j] - yi;
+          const d2 = dx * dx + dy * dy;
+          if (d2 >= NEARBY_RADIUS_SQUARED) continue;
+
+          if (d2 === 0) {
+            const a = Math.random() * PI2;
+            const jx = Math.cos(a) * COINCIDENT_JITTER, jy = Math.sin(a) * COINCIDENT_JITTER;
+            fx += jx; fy += jy;
+            forceX[j] -= jx; forceY[j] -= jy;
+            continue;
+          }
+
+          const mult = (d2 < 400 ? -2 : d2 < 2500 ? 20 : 10) / d2;
+          const tj = pType[j];
+          let dist = -1;
+
+          if (d2 < minD2i) {
+            dist = Math.sqrt(d2);
+            const s = REPULSION_STRENGTH * (1 - dist / minDi) / dist;
+            fx -= s * dx; fy -= s * dy;
+          } else {
+            const f = INTERACTION_MATRIX[rowI + tj] * mult;
+            fx += f * dx; fy += f * dy;
+          }
+
+          const rj = pInRipple[j];
+          if (d2 < (rj ? MIN_DISTANCE_RIPPLE_SQUARED : MIN_DISTANCE_SQUARED)) {
+            if (dist < 0) dist = Math.sqrt(d2);
+            const s = REPULSION_STRENGTH * (1 - dist / (rj ? 3 : 7)) / dist;
+            forceX[j] += s * dx; forceY[j] += s * dy;
+          } else {
+            const f = INTERACTION_MATRIX[tj * TYPES + ti] * mult;
+            forceX[j] -= f * dx; forceY[j] -= f * dy;
+          }
+        }
+        forceX[i] += fx;
+        forceY[i] += fy;
+      }
+
+      function computePairForces() {
+        forceX.fill(0);
+        forceY.fill(0);
+        for (let cy = 0; cy < GRID_HEIGHT; cy++) {
+          for (let cx = 0; cx < GRID_WIDTH; cx++) {
+            const c = cy * GRID_WIDTH + cx;
+            const aStart = cellStarts[c], aEnd = cellStarts[c + 1];
+            if (aStart === aEnd) continue;
+            for (let s = aStart; s < aEnd; s++) {
+              const i = cellParticles[s];
+              pairRange(i, posX[i], posY[i], pType[i], pInRipple[i], s + 1, aEnd);
+            }
+            for (let o = 0; o < PAIR_OFF_COUNT; o++) {
+              const nx = cx + PAIR_OFF_X[o], ny = cy + PAIR_OFF_Y[o];
+              if (nx < 0 || nx >= GRID_WIDTH || ny >= GRID_HEIGHT) continue;
+              const nc = ny * GRID_WIDTH + nx;
+              const bStart = cellStarts[nc], bEnd = cellStarts[nc + 1];
+              if (bStart === bEnd) continue;
+              for (let s = aStart; s < aEnd; s++) {
+                const i = cellParticles[s];
+                pairRange(i, posX[i], posY[i], pType[i], pInRipple[i], bStart, bEnd);
+              }
+            }
+          }
+        }
+      }
+
+      function integrateParticles() {
+        for (let i = 0; i < N; i++) {
+          const evState = pEvent[i];
+          if (evState === 2) continue;
+          let fx = forceX[i], fy = forceY[i];
+          if (evState === 1) { fx += pullX[i]; fy += pullY[i]; }
+          let vx = (velX[i] + fx) * FRICTION;
+          let vy = (velY[i] + fy) * FRICTION;
+          let x = posX[i] + vx;
+          let y = posY[i] + vy;
+          if (x < 0) { x = 0; vx = Math.abs(vx) < 0.5 ? 0.5 : Math.abs(vx); }
+          else if (x > CANVAS_WIDTH) { x = CANVAS_WIDTH; vx = Math.abs(vx) < 0.5 ? -0.5 : -Math.abs(vx); }
+          if (y < 0) { y = 0; vy = Math.abs(vy) < 0.5 ? 0.5 : Math.abs(vy); }
+          else if (y > CANVAS_HEIGHT) { y = CANVAS_HEIGHT; vy = Math.abs(vy) < 0.5 ? -0.5 : -Math.abs(vy); }
+          if (x < 5) vx += 5;
+          else if (x > CANVAS_WIDTH_MINUS_EDGE) vx -= 5;
+          if (y < 5) vy += 5;
+          else if (y > CANVAS_HEIGHT_MINUS_EDGE) vy -= 5;
+          posX[i] = x; posY[i] = y; velX[i] = vx; velY[i] = vy;
+        }
+      }
+
+      function pushDarkMatter(dmp) {
+        const repulsion = dmp.repulsion;
+        if (repulsion === 0) return;
+        const gx = (dmp.x / GRID_SIZE) | 0;
+        const gy = (dmp.y / GRID_SIZE) | 0;
+        let xMin = gx - 1; if (xMin < 0) xMin = 0;
+        let xMax = gx + 1; if (xMax > GRID_WIDTH - 1) xMax = GRID_WIDTH - 1;
+        let yMin = gy - 1; if (yMin < 0) yMin = 0;
+        let yMax = gy + 1; if (yMax > GRID_HEIGHT - 1) yMax = GRID_HEIGHT - 1;
+        for (let cy = yMin; cy <= yMax; cy++) {
+          const rowOffset = cy * GRID_WIDTH;
+          for (let cx = xMin; cx <= xMax; cx++) {
+            const c = rowOffset + cx;
+            const end = cellStarts[c + 1];
+            for (let s = cellStarts[c]; s < end; s++) {
+              const j = cellParticles[s];
+              const dx = posX[j] - dmp.x;
+              const dy = posY[j] - dmp.y;
+              const d2 = dx * dx + dy * dy;
+              if (d2 < DARK_MATTER_RADIUS_SQUARED && d2 > 0.01) {
+                const s2 = repulsion / Math.sqrt(d2);
+                velX[j] += s2 * dx;
+                velY[j] += s2 * dy;
+              }
+            }
+          }
+        }
+      }
+
+      function updateDarkMatter(now) {
+        for (let i = darkMatterParticles.length - 1; i >= 0; i--) {
+          const dmp = darkMatterParticles[i];
+          dmp.move(now);
+          pushDarkMatter(dmp);
+          if (dmp.isExpired(now)) darkMatterParticles.splice(i, 1);
+        }
+      }
+
+      function triggerCollapse(members) {
+        const L = members.length;
+        for (let m = 0; m < L; m++) if (pEvent[members[m]]) return;
+        for (let m = 0; m < L; m++) pEvent[members[m]] = 1;
+        bangEvents.push({
+          members, phase: 1, frame: 0,
+          dirX: new Float32Array(L), dirY: new Float32Array(L), spd: new Float32Array(L)
+        });
+      }
+
+      function startExplosion(ev, cx, cy, now) {
+        const mem = ev.members, L = mem.length;
+        for (let k = 0; k < L; k++) {
+          const i = mem[k];
+          const dx = posX[i] - cx, dy = posY[i] - cy;
+          const d2 = dx * dx + dy * dy;
+          const a = (d2 > 0.25 ? Math.atan2(dy, dx) : Math.random() * PI2)
+                  + (Math.random() * 2 - 1) * EXPLODE_ANGLE_JITTER;
+          ev.dirX[k] = Math.cos(a);
+          ev.dirY[k] = Math.sin(a);
+          ev.spd[k] = TYPE_BLAST_FACTOR[pType[i]] * (1 + (Math.random() * 2 - 1) * EXPLODE_JITTER);
+          pEvent[i] = 2;
+        }
+        ev.phase = 2;
+        ev.frame = 0;
+        onBigBang(now);
+      }
+
+      function updateBangEvents(now) {
+        for (let e = bangEvents.length - 1; e >= 0; e--) {
+          const ev = bangEvents[e];
+          const mem = ev.members, L = mem.length;
+          let cx = 0, cy = 0;
+          for (let k = 0; k < L; k++) { cx += posX[mem[k]]; cy += posY[mem[k]]; }
+          cx /= L; cy /= L;
+
+          if (ev.phase === 1) {
+            const t = ev.frame / COLLAPSE_FRAMES;
+            const G = COLLAPSE_PULL_BASE + COLLAPSE_PULL_GAIN * t * t * t;
+            for (let k = 0; k < L; k++) {
+              const i = mem[k];
+              const g = G * TYPE_COLLAPSE_FACTOR[pType[i]];
+              pullX[i] = (cx - posX[i]) * g;
+              pullY[i] = (cy - posY[i]) * g;
+            }
+            if (++ev.frame >= COLLAPSE_FRAMES) startExplosion(ev, cx, cy, now);
+            continue;
+          }
+
+          const t = ev.frame / EXPLODE_FRAMES;
+          const baseSpeed = EXPLODE_SPEED * (1 - t) + EXPLODE_TAIL;
+          for (let k = 0; k < L; k++) {
+            const i = mem[k];
+            const speed = baseSpeed * ev.spd[k];
+            let x = posX[i] + ev.dirX[k] * speed;
+            let y = posY[i] + ev.dirY[k] * speed;
+            if (x < 0) { x = 0; ev.dirX[k] = -ev.dirX[k]; }
+            else if (x > CANVAS_WIDTH) { x = CANVAS_WIDTH; ev.dirX[k] = -ev.dirX[k]; }
+            if (y < 0) { y = 0; ev.dirY[k] = -ev.dirY[k]; }
+            else if (y > CANVAS_HEIGHT) { y = CANVAS_HEIGHT; ev.dirY[k] = -ev.dirY[k]; }
+            posX[i] = x; posY[i] = y;
+          }
+          if (++ev.frame >= EXPLODE_FRAMES) {
+            for (let k = 0; k < L; k++) {
+              const i = mem[k];
+              const tail = EXPLODE_TAIL * ev.spd[k];
+              velX[i] = ev.dirX[k] * tail;
+              velY[i] = ev.dirY[k] * tail;
+              pEvent[i] = 0;
+            }
+            bangEvents.splice(e, 1);
+          }
+        }
+      }
+
+      function markRippleParticles() {
+        pInRipple.fill(0);
+        for (const ripple of ripples) {
+          const r = ripple.radius, r2 = r * r;
+          const rx = ripple.x, ry = ripple.y;
+          let xMin = ((rx - r) / GRID_SIZE) | 0; if (xMin < 0) xMin = 0;
+          let xMax = ((rx + r) / GRID_SIZE) | 0; if (xMax > GRID_WIDTH - 1) xMax = GRID_WIDTH - 1;
+          let yMin = ((ry - r) / GRID_SIZE) | 0; if (yMin < 0) yMin = 0;
+          let yMax = ((ry + r) / GRID_SIZE) | 0; if (yMax > GRID_HEIGHT - 1) yMax = GRID_HEIGHT - 1;
+          for (let cy = yMin; cy <= yMax; cy++) {
+            const rowOffset = cy * GRID_WIDTH;
+            for (let cx = xMin; cx <= xMax; cx++) {
+              const c = rowOffset + cx;
+              const end = cellStarts[c + 1];
+              for (let s = cellStarts[c]; s < end; s++) {
+                const i = cellParticles[s];
+                const dx = posX[i] - rx;
+                const dy = posY[i] - ry;
+                if (dx * dx + dy * dy <= r2) pInRipple[i] = 1;
+              }
+            }
+          }
+        }
+      }
+
+      function step(now) {
+        updateInteractionMatrix(now);
+        updatePalette(now);
+        updateBangEvents(now);
+        rebuildGrid();
+        markRippleParticles();
+        computePairForces();
+        integrateParticles();
+        updateDarkMatter(now);
+        if (now - lastClusterCheckTime >= CLUSTER_CHECK_INTERVAL) {
+          applyClusters(updateClusters(), now);
+        }
+        emitAndAdvanceRipples(now);
+      }
+
+      function render(now) {
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        for (const ripple of ripples) {
+          ctx.beginPath();
+          ctx.arc(ripple.x, ripple.y, ripple.radius, 0, PI2);
+          ctx.strokeStyle = `rgba(20, 20, 20, ${ripple.opacity})`;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        const blink = 0.5 + 0.5 * Math.sin(PI2 * now / 1000);
+        const alpha = 0.3 + 0.2 * blink;
+        for (let t = 0; t < TYPES; t++) {
+          const start = typeStart[t], end = typeStart[t + 1];
+          let any = false;
+          ctx.beginPath();
+          for (let k = start; k < end; k++) {
+            const i = drawOrder[k];
+            if (!pClustered[i]) continue;
+            ctx.rect(posX[i] - 1.5, posY[i] - 1.5, 3, 3);
+            any = true;
+          }
+          if (any) {
+            const rgb = COLOR_RGB[t];
+            ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+            ctx.fill();
+          }
+        }
+        for (let t = 0; t < TYPES; t++) {
+          const start = typeStart[t], end = typeStart[t + 1];
+          ctx.beginPath();
+          for (let k = start; k < end; k++) {
+            const i = drawOrder[k];
+            ctx.rect(posX[i] - 1, posY[i] - 1, 2, 2);
+          }
+          ctx.fillStyle = COLORS[t];
+          ctx.fill();
+        }
+        for (const dmp of darkMatterParticles) {
+          ctx.beginPath();
+          ctx.arc(dmp.x, dmp.y, dmp.radius, 0, PI2);
+          ctx.fillStyle = '#000000';
+          ctx.fill();
+        }
+      }
+
+      function rebuild() { ctx.setTransform(DPR, 0, 0, DPR, 0, 0); }
+      async function snapshot() { /* CPU 陣列就是本體，無需讀回 */ }
+
+      return { name: 'cpu', triggerCollapse, step, render, rebuild, snapshot };
+    }
+
+    // ===================================================================
+    // GPU backend（WebGPU compute + render）
+    // ===================================================================
+    const MAX_EVENTS = 32;
+    const MAX_RIPPLES = 256;
+    const MAX_DM = 64;
+    const WG = 64;
+
+    const WGSL_COMMON = /* wgsl */`
+      const GRID_SIZE: f32 = ${GRID_SIZE}.0;
+      const TYPES: u32 = ${TYPES}u;
+      const NEARBY_R2: f32 = ${NEARBY_RADIUS_SQUARED}.0;
+      const MIN_D2: f32 = ${MIN_DISTANCE_SQUARED}.0;
+      const MIN_D2_RIPPLE: f32 = ${MIN_DISTANCE_RIPPLE_SQUARED}.0;
+      const DM_R2: f32 = ${DARK_MATTER_RADIUS_SQUARED}.0;
+      const FRICTION: f32 = ${FRICTION};
+      const REPULSION: f32 = ${REPULSION_STRENGTH};
+      const COINCIDENT_JITTER: f32 = ${COINCIDENT_JITTER};
+      const COLLAPSE_FRAMES: u32 = ${COLLAPSE_FRAMES}u;
+      const EXPLODE_FRAMES: u32 = ${EXPLODE_FRAMES}u;
+      const COLLAPSE_PULL_BASE: f32 = ${COLLAPSE_PULL_BASE};
+      const COLLAPSE_PULL_GAIN: f32 = ${COLLAPSE_PULL_GAIN};
+      const EXPLODE_SPEED: f32 = ${EXPLODE_SPEED}.0;
+      const EXPLODE_TAIL: f32 = ${EXPLODE_TAIL};
+      const EXPLODE_JITTER: f32 = ${EXPLODE_JITTER};
+      const EXPLODE_ANGLE_JITTER: f32 = ${EXPLODE_ANGLE_JITTER};
+      const CENTROID_SCALE: f32 = 16.0;
+      const PI2: f32 = 6.283185307179586;
+      const NO_CELL: u32 = 0xFFFFFFFFu;
+
+      // 尺寸相依參數全放 uniform，resize 不需重編 shader
+      struct Sim {
+        n: u32, stepNo: u32, numRipples: u32, numDm: u32,
+        w: f32, h: f32, gw: u32, gh: u32,
+        numCells: u32, p0: u32, p1: u32, p2: u32
+      }
+      // 事件表：phase/frame 由 CPU 每步寫入（同時把累加器歸零）
+      struct Ev { phase: u32, frame: u32, sumX: atomic<i32>, sumY: atomic<i32>, count: atomic<u32>, pad0: u32, pad1: u32, pad2: u32 }
+      struct EvPlain { phase: u32, frame: u32, sumX: i32, sumY: i32, count: u32, pad0: u32, pad1: u32, pad2: u32 }
+
+      fn pcg(v: u32) -> u32 {
+        let s = v * 747796405u + 2891336453u;
+        let w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u;
+        return (w >> 22u) ^ w;
+      }
+      fn rnd(a: u32, b: u32, c: u32) -> f32 {
+        return f32(pcg(pcg(pcg(a) + b) + c) >> 8u) / 16777216.0;
+      }
+
+    `;
+
+    // pass 1：格子計數歸零
+    const WGSL_CLEAR = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read_write> cellCount: array<u32>;
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let c = gid.x;
+        if (c >= sim.numCells) { return; }
+        cellCount[c] = 0u;
+      }
+    `;
+
+    // pass 2：每粒子 atomicAdd 計數並記下自己在格內的序號。爆炸中與凍結中的粒子脫離 grid。
+    const WGSL_COUNT = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> stateIn: array<vec4f>;
+      @group(0) @binding(2) var<storage, read> pevc: array<vec2i>;
+      @group(0) @binding(3) var<storage, read> events: array<EvPlain>;
+      @group(0) @binding(4) var<storage, read_write> cellCount: array<atomic<u32>>;
+      @group(0) @binding(5) var<storage, read_write> pcell: array<u32>;
+      @group(0) @binding(6) var<storage, read_write> localSlot: array<u32>;
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let i = gid.x;
+        if (i >= sim.n) { return; }
+        let pe = pevc[i];
+        var detached = (pe.x == 2);
+        if (pe.x == 1) {
+          detached = (events[pe.y].frame == COLLAPSE_FRAMES - 1u);
+        }
+        if (detached) { pcell[i] = NO_CELL; return; }
+        let p = stateIn[i].xy;
+        let gx = min(u32(p.x / GRID_SIZE), sim.gw - 1u);
+        let gy = min(u32(p.y / GRID_SIZE), sim.gh - 1u);
+        let c = gy * sim.gw + gx;
+        pcell[i] = c;
+        localSlot[i] = atomicAdd(&cellCount[c], 1u);
+      }
+    `;
+
+    // pass 3：前綴和（格子數只有數百到一兩千，單執行緒序列即可）
+    const WGSL_SCAN = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> cellCount: array<u32>;
+      @group(0) @binding(2) var<storage, read_write> cellStart: array<u32>;
+      @compute @workgroup_size(1) fn main() {
+        var acc = 0u;
+        cellStart[0] = 0u;
+        for (var c = 0u; c < sim.numCells; c++) {
+          acc += cellCount[c];
+          cellStart[c + 1u] = acc;
+        }
+      }
+    `;
+
+    // pass 4：散佈到 cellParticles
+    const WGSL_SCATTER = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> pcell: array<u32>;
+      @group(0) @binding(2) var<storage, read> localSlot: array<u32>;
+      @group(0) @binding(3) var<storage, read> cellStart: array<u32>;
+      @group(0) @binding(4) var<storage, read_write> cellParticles: array<u32>;
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let i = gid.x;
+        if (i >= sim.n) { return; }
+        let c = pcell[i];
+        if (c == NO_CELL) { return; }
+        cellParticles[cellStart[c] + localSlot[i]] = i;
+      }
+    `;
+
+    // pass 5：漣漪旗標。attr 低 8 位 = type（靜態），bit 8 = inRipple
+    const WGSL_FLAGS = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> stateIn: array<vec4f>;
+      @group(0) @binding(2) var<uniform> ripples: array<vec4f, ${MAX_RIPPLES}>;   // x, y, r2, -
+      @group(0) @binding(3) var<storage, read_write> attr: array<u32>;
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let i = gid.x;
+        if (i >= sim.n) { return; }
+        let p = stateIn[i].xy;
+        var inR = 0u;
+        for (var k = 0u; k < sim.numRipples; k++) {
+          let r = ripples[k];
+          let d = p - r.xy;
+          if (dot(d, d) <= r.z) { inR = 1u; break; }
+        }
+        attr[i] = (attr[i] & 0xFFu) | (inR << 8u);
+      }
+    `;
+
+    // pass 6：事件質心（定點整數 atomic，與順序無關 → 確定性）
+    const WGSL_REDUCE = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> stateIn: array<vec4f>;
+      @group(0) @binding(2) var<storage, read> pevc: array<vec2i>;
+      @group(0) @binding(3) var<storage, read_write> events: array<Ev>;
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let i = gid.x;
+        if (i >= sim.n) { return; }
+        let pe = pevc[i];
+        if (pe.x == 0) { return; }
+        let p = stateIn[i].xy;
+        atomicAdd(&events[pe.y].sumX, i32(round(p.x * CENTROID_SCALE)));
+        atomicAdd(&events[pe.y].sumY, i32(round(p.y * CENTROID_SCALE)));
+        atomicAdd(&events[pe.y].count, 1u);
+      }
+    `;
+
+    // pass 7：力 + 積分（gather ±2 格），坍縮拉力、暗物質推力、爆炸位移全在此
+    const WGSL_FORCE = WGSL_COMMON + /* wgsl */`
+      @group(0) @binding(0) var<uniform> sim: Sim;
+      @group(0) @binding(1) var<storage, read> stateIn: array<vec4f>;
+      @group(0) @binding(2) var<storage, read_write> stateOut: array<vec4f>;
+      @group(0) @binding(3) var<storage, read> pevc: array<vec2i>;       // x=state y=eventId
+      @group(0) @binding(4) var<storage, read_write> pevg: array<vec4f>; // dir.xy, spd, -
+      @group(0) @binding(5) var<storage, read> attr: array<u32>;
+      @group(0) @binding(6) var<storage, read> cellStart: array<u32>;
+      @group(0) @binding(7) var<storage, read> cellParticles: array<u32>;
+      @group(0) @binding(8) var<storage, read_write> events: array<Ev>;
+      // consts[0..35] = 12x12 矩陣，[36..38] = collapse factor，[39..41] = blast factor
+      @group(0) @binding(9) var<uniform> consts: array<vec4f, 42>;
+      @group(0) @binding(10) var<uniform> dm: array<vec4f, ${MAX_DM}>;  // x, y, repulsion, -
+
+      fn matrixAt(k: u32) -> f32 { return consts[k >> 2u][k & 3u]; }
+      fn collapseFactor(t: u32) -> f32 { return consts[36u + (t >> 2u)][t & 3u]; }
+      fn blastFactor(t: u32) -> f32 { return consts[39u + (t >> 2u)][t & 3u]; }
+
+      fn centroidOf(e: i32) -> vec2f {
+        let cnt = max(atomicLoad(&events[e].count), 1u);
+        let sx = f32(atomicLoad(&events[e].sumX));
+        let sy = f32(atomicLoad(&events[e].sumY));
+        return vec2f(sx, sy) / (CENTROID_SCALE * f32(cnt));
+      }
+
+      @compute @workgroup_size(${WG}) fn main(@builtin(global_invocation_id) gid: vec3u) {
+        let i = gid.x;
+        if (i >= sim.n) { return; }
+        let st = stateIn[i];
+        var p = st.xy;
+        var v = st.zw;
+        let pe = pevc[i];
+        let evs = pe.x;
+        let eid = pe.y;
+        let a = attr[i];
+        let ti = a & 0xFFu;
+
+        // ---- 爆炸中：脫離物理 ----
+        if (evs == 2) {
+          let frame = events[eid].frame;
+          var g = pevg[i];
+          if (frame == 0u) {
+            let c = centroidOf(eid);
+            let d = p - c;
+            let d2 = dot(d, d);
+            var ang: f32;
+            if (d2 > 0.25) { ang = atan2(d.y, d.x); } else { ang = rnd(i, sim.stepNo, 11u) * PI2; }
+            ang += (rnd(i, sim.stepNo, 12u) * 2.0 - 1.0) * EXPLODE_ANGLE_JITTER;
+            g = vec4f(cos(ang), sin(ang), blastFactor(ti) * (1.0 + (rnd(i, sim.stepNo, 13u) * 2.0 - 1.0) * EXPLODE_JITTER), 0.0);
+          }
+          let t = f32(frame) / f32(EXPLODE_FRAMES);
+          let speed = (EXPLODE_SPEED * (1.0 - t) + EXPLODE_TAIL) * g.z;
+          p += g.xy * speed;
+          if (p.x < 0.0) { p.x = 0.0; g.x = -g.x; } else if (p.x > sim.w) { p.x = sim.w; g.x = -g.x; }
+          if (p.y < 0.0) { p.y = 0.0; g.y = -g.y; } else if (p.y > sim.h) { p.y = sim.h; g.y = -g.y; }
+          if (frame == EXPLODE_FRAMES - 1u) { v = g.xy * (EXPLODE_TAIL * g.z); }
+          pevg[i] = g;
+          stateOut[i] = vec4f(p, v);
+          return;
+        }
+
+        // ---- 坍縮最後一步：凍結（對應 v21 該步 pEvent 已設為 2、跳過積分）----
+        var frame = 0u;
+        if (evs == 1) {
+          frame = events[eid].frame;
+          if (frame == COLLAPSE_FRAMES - 1u) { stateOut[i] = st; return; }
+        }
+
+        // ---- 配對力 ----
+        let ri = (a >> 8u) & 1u;
+        let minD2i = select(MIN_D2, MIN_D2_RIPPLE, ri == 1u);
+        let minDi = select(7.0, 3.0, ri == 1u);
+        let rowI = ti * TYPES;
+        var f = vec2f(0.0, 0.0);
+
+        let gx = i32(min(u32(p.x / GRID_SIZE), sim.gw - 1u));
+        let gy = i32(min(u32(p.y / GRID_SIZE), sim.gh - 1u));
+        for (var dy = -2; dy <= 2; dy++) {
+          let cy = gy + dy;
+          if (cy < 0 || cy >= i32(sim.gh)) { continue; }
+          for (var dx = -2; dx <= 2; dx++) {
+            let cx = gx + dx;
+            if (cx < 0 || cx >= i32(sim.gw)) { continue; }
+            let c = u32(cy) * sim.gw + u32(cx);
+            let s0 = cellStart[c];
+            let s1 = cellStart[c + 1u];
+            for (var s = s0; s < s1; s++) {
+              let j = cellParticles[s];
+              if (j == i) { continue; }
+              let d = stateIn[j].xy - p;      // 由 i 指向 j
+              let d2 = dot(d, d);
+              if (d2 >= NEARBY_R2) { continue; }
+              if (d2 == 0.0) {
+                // 完全重合：兩邊由同一 seed 得到同一角度、取反號 → 對稱分離
+                let ang = rnd(min(i, j), max(i, j), sim.stepNo) * PI2;
+                let jv = vec2f(cos(ang), sin(ang)) * COINCIDENT_JITTER;
+                f += select(-jv, jv, i < j);
+                continue;
+              }
+              let mult = select(select(10.0, 20.0, d2 < 2500.0), -2.0, d2 < 400.0) / d2;
+              if (d2 < minD2i) {
+                let dist = sqrt(d2);
+                let sr = REPULSION * (1.0 - dist / minDi) / dist;
+                f -= sr * d;
+              } else {
+                let tj = attr[j] & 0xFFu;
+                f += matrixAt(rowI + tj) * mult * d;
+              }
+            }
+          }
+        }
+
+        // ---- 坍縮拉力 ----
+        if (evs == 1) {
+          let t = f32(frame) / f32(COLLAPSE_FRAMES);
+          let G = COLLAPSE_PULL_BASE + COLLAPSE_PULL_GAIN * t * t * t;
+          let c = centroidOf(eid);
+          f += (c - p) * (G * collapseFactor(ti));
+        }
+
+        // ---- 暗物質推力（作用在速度上）----
+        for (var k = 0u; k < sim.numDm; k++) {
+          let m = dm[k];
+          let d = p - m.xy;
+          let d2 = dot(d, d);
+          if (d2 < DM_R2 && d2 > 0.01) {
+            v += (m.z / sqrt(d2)) * d;
+          }
+        }
+
+        // ---- 積分與邊界 ----
+        v = (v + f) * FRICTION;
+        p += v;
+        if (p.x < 0.0) { p.x = 0.0; v.x = select(abs(v.x), 0.5, abs(v.x) < 0.5); }
+        else if (p.x > sim.w) { p.x = sim.w; v.x = select(-abs(v.x), -0.5, abs(v.x) < 0.5); }
+        if (p.y < 0.0) { p.y = 0.0; v.y = select(abs(v.y), 0.5, abs(v.y) < 0.5); }
+        else if (p.y > sim.h) { p.y = sim.h; v.y = select(-abs(v.y), -0.5, abs(v.y) < 0.5); }
+        if (p.x < 5.0) { v.x += 5.0; } else if (p.x > sim.w - 5.0) { v.x -= 5.0; }
+        if (p.y < 5.0) { v.y += 5.0; } else if (p.y > sim.h - 5.0) { v.y -= 5.0; }
+
+        stateOut[i] = vec4f(p, v);
+      }
+    `;
+
+    // 繪製：漣漪 → 光暈 → 粒子 → 暗物質，全部 instanced quad
+    const WGSL_RENDER = WGSL_COMMON + /* wgsl */`
+      struct RParams { w: f32, h: f32, glowAlpha: f32, pad: f32 }
+      @group(0) @binding(0) var<uniform> rp: RParams;
+      @group(0) @binding(1) var<storage, read> state: array<vec4f>;
+      @group(0) @binding(2) var<storage, read> drawOrder: array<u32>;
+      @group(0) @binding(3) var<storage, read> attr: array<u32>;
+      @group(0) @binding(4) var<storage, read> clustered: array<u32>;
+      @group(0) @binding(5) var<uniform> colors: array<vec4f, ${TYPES}>;
+      @group(0) @binding(6) var<uniform> ripples: array<vec4f, ${MAX_RIPPLES}>;  // x, y, radius, opacity
+      @group(0) @binding(7) var<uniform> dm: array<vec4f, ${MAX_DM}>;
+
+      struct VOut { @builtin(position) pos: vec4f, @location(0) color: vec4f, @location(1) local: vec2f, @location(2) radius: f32 }
+
+      fn corner(vi: u32) -> vec2f {
+        let x = select(-1.0, 1.0, vi == 1u || vi == 3u || vi == 4u);
+        let y = select(-1.0, 1.0, vi == 2u || vi == 4u || vi == 5u);
+        return vec2f(x, y);
+      }
+      fn toClip(px: vec2f) -> vec4f {
+        return vec4f(px.x / rp.w * 2.0 - 1.0, 1.0 - px.y / rp.h * 2.0, 0.0, 1.0);
+      }
+      const OFFSCREEN = vec4f(2.0, 2.0, 0.0, 1.0);
+
+      @vertex fn vsParticle(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut {
+        var o: VOut;
+        let i = drawOrder[ii];
+        let p = state[i].xy + corner(vi) * 1.0;   // 2x2 方塊
+        o.pos = toClip(p);
+        o.color = vec4f(colors[attr[i] & 0xFFu].rgb, 1.0);
+        o.local = vec2f(0.0); o.radius = 0.0;
+        return o;
+      }
+      @vertex fn vsGlow(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut {
+        var o: VOut;
+        let i = drawOrder[ii];
+        if (clustered[i] == 0u) { o.pos = OFFSCREEN; o.color = vec4f(0.0); o.local = vec2f(0.0); o.radius = 0.0; return o; }
+        let p = state[i].xy + corner(vi) * 1.5;   // 3x3 方塊
+        o.pos = toClip(p);
+        o.color = vec4f(colors[attr[i] & 0xFFu].rgb, rp.glowAlpha);
+        o.local = vec2f(0.0); o.radius = 0.0;
+        return o;
+      }
+      @fragment fn fsFlat(fin: VOut) -> @location(0) vec4f { return fin.color; }
+
+      @vertex fn vsRipple(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut {
+        var o: VOut;
+        let r = ripples[ii];
+        let hs = r.z + 2.5;
+        let c = corner(vi);
+        o.pos = toClip(r.xy + c * hs);
+        o.local = c * hs;
+        o.radius = r.z;
+        o.color = vec4f(20.0 / 255.0, 20.0 / 255.0, 20.0 / 255.0, r.w);
+        return o;
+      }
+      @fragment fn fsRipple(fin: VOut) -> @location(0) vec4f {
+        // 線寬 3（±1.5），邊緣 1px 抗鋸齒
+        let d = abs(length(fin.local) - fin.radius);
+        let a = 1.0 - smoothstep(1.0, 2.0, d);
+        return vec4f(fin.color.rgb, fin.color.a * a);
+      }
+
+      @vertex fn vsDm(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> VOut {
+        var o: VOut;
+        let m = dm[ii];
+        let hs = 3.0;
+        let c = corner(vi);
+        o.pos = toClip(m.xy + c * hs);
+        o.local = c * hs;
+        o.radius = 2.0;
+        o.color = vec4f(0.0, 0.0, 0.0, 1.0);
+        return o;
+      }
+      @fragment fn fsDm(fin: VOut) -> @location(0) vec4f {
+        let a = 1.0 - smoothstep(fin.radius - 0.5, fin.radius + 0.5, length(fin.local));
+        return vec4f(0.0, 0.0, 0.0, a);
+      }
+    `;
+
+    async function createGpuBackend() {
+      if (!navigator.gpu) throw new Error('navigator.gpu 不存在');
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) throw new Error('requestAdapter 失敗');
+      const device = await adapter.requestDevice();
+      device.lost.then(info => console.error('WebGPU device lost:', info.message));
+      device.addEventListener('uncapturederror', e => console.error('WebGPU error:', e.error.message));
+      device.pushErrorScope('validation');   // 建立階段任何驗證錯誤都要能退回 CPU
+      const gctx = canvas.getContext('webgpu');
+      const format = navigator.gpu.getPreferredCanvasFormat();
+      gctx.configure({ device, format, alphaMode: 'opaque' });
+
+      const B = GPUBufferUsage;
+      const mkBuf = (size, usage) => device.createBuffer({ size: Math.max(16, size), usage });
+
+      // ---- 與尺寸無關的 buffer（只建一次）----
+      const eventsBuf = mkBuf(MAX_EVENTS * 32, B.STORAGE | B.COPY_DST);
+      const eventsCpu = new Uint32Array(MAX_EVENTS * 8);
+      const simBuf = mkBuf(48, B.UNIFORM | B.COPY_DST);
+      const simRaw = new ArrayBuffer(48);
+      const simU32 = new Uint32Array(simRaw);
+      const simF32 = new Float32Array(simRaw);
+      const constsBuf = mkBuf(42 * 16, B.UNIFORM | B.COPY_DST);
+      const constsCpu = new Float32Array(42 * 4);
+      for (let t = 0; t < TYPES; t++) {
+        constsCpu[144 + t] = TYPE_COLLAPSE_FACTOR[t];
+        constsCpu[156 + t] = TYPE_BLAST_FACTOR[t];
+      }
+      const ripplesSimBuf = mkBuf(MAX_RIPPLES * 16, B.UNIFORM | B.COPY_DST);
+      const ripplesRenderBuf = mkBuf(MAX_RIPPLES * 16, B.UNIFORM | B.COPY_DST);
+      const ripplesCpu = new Float32Array(MAX_RIPPLES * 4);
+      const dmBuf = mkBuf(MAX_DM * 16, B.UNIFORM | B.COPY_DST);
+      const dmCpu = new Float32Array(MAX_DM * 4);
+      const colorsBuf = mkBuf(TYPES * 16, B.UNIFORM | B.COPY_DST);
+      const colorsCpu = new Float32Array(TYPES * 4);
+      const rpBuf = mkBuf(16, B.UNIFORM | B.COPY_DST);
+      const rpCpu = new Float32Array([0, 0, 0.3, 0]);
+
+      // ---- pipelines（只建一次；尺寸全走 uniform）----
+      const mkCompute = (code, label) => device.createComputePipelineAsync({
+        label, layout: 'auto',
+        compute: { module: device.createShaderModule({ code, label }), entryPoint: 'main' }
+      });
+      const [pClear, pCount, pScan, pScatter, pFlags, pReduce, pForce] = await Promise.all([
+        mkCompute(WGSL_CLEAR, 'clear'), mkCompute(WGSL_COUNT, 'count'), mkCompute(WGSL_SCAN, 'scan'),
+        mkCompute(WGSL_SCATTER, 'scatter'), mkCompute(WGSL_FLAGS, 'flags'), mkCompute(WGSL_REDUCE, 'reduce'),
+        mkCompute(WGSL_FORCE, 'force')
+      ]);
+
+      const renderModule = device.createShaderModule({ code: WGSL_RENDER, label: 'render' });
+      const V = GPUShaderStage.VERTEX, F = GPUShaderStage.FRAGMENT;
+      const renderBGL = device.createBindGroupLayout({
+        entries: [
+          { binding: 0, visibility: V | F, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: V, buffer: { type: 'read-only-storage' } },
+          { binding: 2, visibility: V, buffer: { type: 'read-only-storage' } },
+          { binding: 3, visibility: V, buffer: { type: 'read-only-storage' } },
+          { binding: 4, visibility: V, buffer: { type: 'read-only-storage' } },
+          { binding: 5, visibility: V, buffer: { type: 'uniform' } },
+          { binding: 6, visibility: V, buffer: { type: 'uniform' } },
+          { binding: 7, visibility: V, buffer: { type: 'uniform' } },
+        ]
+      });
+      const renderLayout = device.createPipelineLayout({ bindGroupLayouts: [renderBGL] });
+      const SAMPLES = 4;
+      const blend = {
+        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+      };
+      const mkRender = (vs, fs) => device.createRenderPipelineAsync({
+        layout: renderLayout,
+        vertex: { module: renderModule, entryPoint: vs },
+        fragment: { module: renderModule, entryPoint: fs, targets: [{ format, blend }] },
+        primitive: { topology: 'triangle-list' },
+        multisample: { count: SAMPLES }
+      });
+      const [rpRipple, rpGlow, rpParticle, rpDm] = await Promise.all([
+        mkRender('vsRipple', 'fsRipple'), mkRender('vsGlow', 'fsFlat'),
+        mkRender('vsParticle', 'fsFlat'), mkRender('vsDm', 'fsDm')
+      ]);
+
+      const setupError = await device.popErrorScope();
+      if (setupError) throw new Error('WebGPU 建立階段驗證錯誤: ' + setupError.message);
+
+      // ---- 尺寸相依資源（rebuild 時重建）----
+      const R = {};   // stateBuf, attrBuf, drawOrderBuf, clusteredBuf, pevcBuf, pevgBuf, grid buffers, staging, msaa, bind groups
+      let clusteredU32 = null;
+      let pevcCpu = null;
+      let groups = 0;
+
+      // ---- 狀態 ----
+      let parity = 0;
+      let stepCounter = 0;
+      let pevcDirty = false;
+      const eventSlots = new Array(MAX_EVENTS).fill(null);
+      let readbackPromise = null;
+      let lastReadbackRequest = -Infinity;
+      let latestNow = 0;
+      let renderRippleCount = 0, renderDmCount = 0;
+
+      const bg = (pipeline, bufs) => device.createBindGroup({
+        layout: pipeline.getBindGroupLayout(0),
+        entries: bufs.map((buffer, binding) => ({ binding, resource: { buffer } }))
+      });
+
+      // 依目前的 N / CANVAS_* / DPR 重建所有尺寸相依資源，並把 CPU SoA 上傳為初始狀態
+      function rebuild() {
+        device.pushErrorScope('validation');
+        for (const k of Object.keys(R)) {
+          const v = R[k];
+          if (Array.isArray(v)) { for (const b of v) if (b && b.destroy) b.destroy(); }
+          else if (v && v.destroy) v.destroy();
+          delete R[k];
+        }
+
+        const stateInit = new Float32Array(N * 4);
+        for (let i = 0; i < N; i++) {
+          stateInit[i * 4] = posX[i]; stateInit[i * 4 + 1] = posY[i];
+          stateInit[i * 4 + 2] = velX[i]; stateInit[i * 4 + 3] = velY[i];
+        }
+        R.stateBuf = [
+          mkBuf(N * 16, B.STORAGE | B.COPY_DST | B.COPY_SRC),
+          mkBuf(N * 16, B.STORAGE | B.COPY_DST | B.COPY_SRC)
+        ];
+        device.queue.writeBuffer(R.stateBuf[0], 0, stateInit);
+        device.queue.writeBuffer(R.stateBuf[1], 0, stateInit);
+        parity = 0;
+
+        const attrInit = new Uint32Array(N);
+        for (let i = 0; i < N; i++) attrInit[i] = pType[i];
+        R.attrBuf = mkBuf(N * 4, B.STORAGE | B.COPY_DST);
+        device.queue.writeBuffer(R.attrBuf, 0, attrInit);
+
+        R.drawOrderBuf = mkBuf(N * 4, B.STORAGE | B.COPY_DST);
+        device.queue.writeBuffer(R.drawOrderBuf, 0, new Uint32Array(drawOrder));
+
+        R.clusteredBuf = mkBuf(N * 4, B.STORAGE | B.COPY_DST);
+        clusteredU32 = new Uint32Array(N);
+        device.queue.writeBuffer(R.clusteredBuf, 0, clusteredU32);
+
+        pevcCpu = new Int32Array(N * 2);
+        for (let i = 0; i < N; i++) pevcCpu[i * 2 + 1] = -1;
+        R.pevcBuf = mkBuf(N * 8, B.STORAGE | B.COPY_DST);
+        device.queue.writeBuffer(R.pevcBuf, 0, pevcCpu);
+        pevcDirty = false;
+        R.pevgBuf = mkBuf(N * 16, B.STORAGE);
+
+        R.cellCountBuf = mkBuf(NUM_CELLS * 4, B.STORAGE);
+        R.cellStartBuf = mkBuf((NUM_CELLS + 1) * 4, B.STORAGE);
+        R.pcellBuf = mkBuf(N * 4, B.STORAGE);
+        R.localSlotBuf = mkBuf(N * 4, B.STORAGE);
+        R.cellParticlesBuf = mkBuf(N * 4, B.STORAGE);
+        R.stagingBuf = mkBuf(N * 16, B.MAP_READ | B.COPY_DST);
+
+        R.bgClear = bg(pClear, [simBuf, R.cellCountBuf]);
+        R.bgScan = bg(pScan, [simBuf, R.cellCountBuf, R.cellStartBuf]);
+        R.bgScatter = bg(pScatter, [simBuf, R.pcellBuf, R.localSlotBuf, R.cellStartBuf, R.cellParticlesBuf]);
+        R.bgCount = []; R.bgFlags = []; R.bgReduce = []; R.bgForce = []; R.bgRender = [];
+        for (let par = 0; par < 2; par++) {
+          const sIn = R.stateBuf[par], sOut = R.stateBuf[par ^ 1];
+          R.bgCount[par] = bg(pCount, [simBuf, sIn, R.pevcBuf, eventsBuf, R.cellCountBuf, R.pcellBuf, R.localSlotBuf]);
+          R.bgFlags[par] = bg(pFlags, [simBuf, sIn, ripplesSimBuf, R.attrBuf]);
+          R.bgReduce[par] = bg(pReduce, [simBuf, sIn, R.pevcBuf, eventsBuf]);
+          R.bgForce[par] = bg(pForce, [simBuf, sIn, sOut, R.pevcBuf, R.pevgBuf, R.attrBuf, R.cellStartBuf, R.cellParticlesBuf, eventsBuf, constsBuf, dmBuf]);
+          R.bgRender[par] = device.createBindGroup({
+            layout: renderBGL,
+            entries: [
+              { binding: 0, resource: { buffer: rpBuf } },
+              { binding: 1, resource: { buffer: sIn } },
+              { binding: 2, resource: { buffer: R.drawOrderBuf } },
+              { binding: 3, resource: { buffer: R.attrBuf } },
+              { binding: 4, resource: { buffer: R.clusteredBuf } },
+              { binding: 5, resource: { buffer: colorsBuf } },
+              { binding: 6, resource: { buffer: ripplesRenderBuf } },
+              { binding: 7, resource: { buffer: dmBuf } },
+            ]
+          });
+        }
+
+        R.msaaTex = device.createTexture({
+          size: [canvas.width, canvas.height], sampleCount: SAMPLES, format,
+          usage: GPUTextureUsage.RENDER_ATTACHMENT
+        });
+        R.msaaView = R.msaaTex.createView();
+
+        groups = Math.ceil(N / WG);
+        eventSlots.fill(null);
+        lastReadbackRequest = -Infinity;
+        rpCpu[0] = CANVAS_WIDTH; rpCpu[1] = CANVAS_HEIGHT;
+        device.popErrorScope().then(err => { if (err) console.error('WebGPU rebuild 驗證錯誤:', err.message); });
+      }
+
+      // resize 前把最新的 pos/vel 讀回 CPU（模擬已暫停，不會與每步的讀回衝突）
+      async function snapshot() {
+        if (readbackPromise) { try { await readbackPromise; } catch (e) {} }
+        const enc = device.createCommandEncoder();
+        enc.copyBufferToBuffer(R.stateBuf[parity], 0, R.stagingBuf, 0, N * 16);
+        device.queue.submit([enc.finish()]);
+        await R.stagingBuf.mapAsync(GPUMapMode.READ);
+        const data = new Float32Array(R.stagingBuf.getMappedRange());
+        for (let i = 0; i < N; i++) {
+          posX[i] = data[i * 4]; posY[i] = data[i * 4 + 1];
+          velX[i] = data[i * 4 + 2]; velY[i] = data[i * 4 + 3];
+        }
+        R.stagingBuf.unmap();
+      }
+
+      function triggerCollapse(members) {
+        const L = members.length;
+        for (let m = 0; m < L; m++) if (pEvent[members[m]]) return;
+        let slot = -1;
+        for (let s = 0; s < MAX_EVENTS; s++) if (!eventSlots[s]) { slot = s; break; }
+        if (slot < 0) { console.warn('事件槽已滿，略過此次坍縮'); return; }
+        const ev = { members, phase: 1, frame: 0, slot };
+        eventSlots[slot] = ev;
+        bangEvents.push(ev);
+        for (let m = 0; m < L; m++) {
+          const i = members[m];
+          pEvent[i] = 1;
+          pevcCpu[i * 2] = 1;
+          pevcCpu[i * 2 + 1] = slot;
+        }
+        pevcDirty = true;
+      }
+
+      function advanceEvents(now) {
+        for (let e = bangEvents.length - 1; e >= 0; e--) {
+          const ev = bangEvents[e];
+          const mem = ev.members, L = mem.length;
+          ev.frame++;
+          if (ev.phase === 1) {
+            if (ev.frame >= COLLAPSE_FRAMES) {
+              ev.phase = 2; ev.frame = 0;
+              for (let k = 0; k < L; k++) { pEvent[mem[k]] = 2; pevcCpu[mem[k] * 2] = 2; }
+              pevcDirty = true;
+              onBigBang(now);
+            }
+          } else if (ev.frame >= EXPLODE_FRAMES) {
+            for (let k = 0; k < L; k++) {
+              const i = mem[k];
+              pEvent[i] = 0; pevcCpu[i * 2] = 0; pevcCpu[i * 2 + 1] = -1;
+            }
+            pevcDirty = true;
+            eventSlots[ev.slot] = null;
+            bangEvents.splice(e, 1);
+          }
+        }
+      }
+
+      function uploadPerStep(now) {
+        eventsCpu.fill(0);
+        for (const ev of bangEvents) {
+          eventsCpu[ev.slot * 8] = ev.phase;
+          eventsCpu[ev.slot * 8 + 1] = ev.frame;
+        }
+        device.queue.writeBuffer(eventsBuf, 0, eventsCpu);
+        if (pevcDirty) { device.queue.writeBuffer(R.pevcBuf, 0, pevcCpu); pevcDirty = false; }
+
+        constsCpu.set(INTERACTION_MATRIX, 0);
+        device.queue.writeBuffer(constsBuf, 0, constsCpu);
+
+        const nr = Math.min(ripples.length, MAX_RIPPLES);
+        for (let k = 0; k < nr; k++) {
+          const r = ripples[k];
+          ripplesCpu[k * 4] = r.x; ripplesCpu[k * 4 + 1] = r.y;
+          ripplesCpu[k * 4 + 2] = r.radius * r.radius; ripplesCpu[k * 4 + 3] = 0;
+        }
+        if (nr > 0) device.queue.writeBuffer(ripplesSimBuf, 0, ripplesCpu, 0, nr * 4);
+
+        let nd = 0;
+        for (let i = darkMatterParticles.length - 1; i >= 0; i--) {
+          const dmp = darkMatterParticles[i];
+          dmp.move(now);
+          if (dmp.repulsion > 0 && nd < MAX_DM) {
+            dmCpu[nd * 4] = dmp.x; dmCpu[nd * 4 + 1] = dmp.y; dmCpu[nd * 4 + 2] = dmp.repulsion; dmCpu[nd * 4 + 3] = 0;
+            nd++;
+          }
+        }
+        if (nd > 0) device.queue.writeBuffer(dmBuf, 0, dmCpu, 0, nd * 4);
+
+        simU32[0] = N; simU32[1] = stepCounter; simU32[2] = nr; simU32[3] = nd;
+        simF32[4] = CANVAS_WIDTH; simF32[5] = CANVAS_HEIGHT;
+        simU32[6] = GRID_WIDTH; simU32[7] = GRID_HEIGHT; simU32[8] = NUM_CELLS;
+        device.queue.writeBuffer(simBuf, 0, simRaw);
+      }
+
+      function step(now) {
+        latestNow = now;
+        updateInteractionMatrix(now);
+        updatePalette(now);
+        uploadPerStep(now);
+
+        const enc = device.createCommandEncoder();
+        const pass = enc.beginComputePass();
+        pass.setPipeline(pClear);   pass.setBindGroup(0, R.bgClear);          pass.dispatchWorkgroups(Math.ceil(NUM_CELLS / WG));
+        pass.setPipeline(pCount);   pass.setBindGroup(0, R.bgCount[parity]);  pass.dispatchWorkgroups(groups);
+        pass.setPipeline(pScan);    pass.setBindGroup(0, R.bgScan);           pass.dispatchWorkgroups(1);
+        pass.setPipeline(pScatter); pass.setBindGroup(0, R.bgScatter);        pass.dispatchWorkgroups(groups);
+        pass.setPipeline(pFlags);   pass.setBindGroup(0, R.bgFlags[parity]);  pass.dispatchWorkgroups(groups);
+        pass.setPipeline(pReduce);  pass.setBindGroup(0, R.bgReduce[parity]); pass.dispatchWorkgroups(groups);
+        pass.setPipeline(pForce);   pass.setBindGroup(0, R.bgForce[parity]);  pass.dispatchWorkgroups(groups);
+        pass.end();
+        parity ^= 1;
+
+        let doReadback = false;
+        if (!readbackPromise && now - lastReadbackRequest >= CLUSTER_CHECK_INTERVAL) {
+          enc.copyBufferToBuffer(R.stateBuf[parity], 0, R.stagingBuf, 0, N * 16);
+          doReadback = true;
+          lastReadbackRequest = now;
+        }
+        device.queue.submit([enc.finish()]);
+        stepCounter++;
+
+        if (doReadback) {
+          const staging = R.stagingBuf, n = N;
+          readbackPromise = staging.mapAsync(GPUMapMode.READ).then(() => {
+            readbackPromise = null;
+            if (staging !== R.stagingBuf) { staging.unmap(); return; }   // resize 途中的舊讀回，丟棄
+            onReadback(staging, n);
+          }, err => {
+            readbackPromise = null;
+            console.error('mapAsync 失敗:', err);
+          });
+        }
+
+        advanceEvents(now);
+        for (let i = darkMatterParticles.length - 1; i >= 0; i--) {
+          if (darkMatterParticles[i].isExpired(now)) darkMatterParticles.splice(i, 1);
+        }
+        emitAndAdvanceRipples(now);
+      }
+
+      function onReadback(staging, n) {
+        const data = new Float32Array(staging.getMappedRange());
+        for (let i = 0; i < n; i++) {
+          posX[i] = data[i * 4];
+          posY[i] = data[i * 4 + 1];
+        }
+        staging.unmap();
+
+        rebuildGrid();
+        const clusters = updateClusters();
+        applyClusters(clusters, latestNow);
+        for (let i = 0; i < N; i++) clusteredU32[i] = pClustered[i];
+        device.queue.writeBuffer(R.clusteredBuf, 0, clusteredU32);
+      }
+
+      function render(now) {
+        if (colorsDirty) {
+          for (let t = 0; t < TYPES; t++) {
+            const c = COLOR_RGB[t];
+            colorsCpu[t * 4] = c.r / 255; colorsCpu[t * 4 + 1] = c.g / 255; colorsCpu[t * 4 + 2] = c.b / 255; colorsCpu[t * 4 + 3] = 1;
+          }
+          device.queue.writeBuffer(colorsBuf, 0, colorsCpu);
+          colorsDirty = false;
+        }
+        const blink = 0.5 + 0.5 * Math.sin(PI2 * now / 1000);
+        rpCpu[2] = 0.3 + 0.2 * blink;
+        device.queue.writeBuffer(rpBuf, 0, rpCpu);
+
+        renderRippleCount = Math.min(ripples.length, MAX_RIPPLES);
+        for (let k = 0; k < renderRippleCount; k++) {
+          const r = ripples[k];
+          ripplesCpu[k * 4] = r.x; ripplesCpu[k * 4 + 1] = r.y;
+          ripplesCpu[k * 4 + 2] = r.radius; ripplesCpu[k * 4 + 3] = r.opacity;
+        }
+        if (renderRippleCount > 0) device.queue.writeBuffer(ripplesRenderBuf, 0, ripplesCpu, 0, renderRippleCount * 4);
+
+        renderDmCount = Math.min(darkMatterParticles.length, MAX_DM);
+        for (let k = 0; k < renderDmCount; k++) {
+          const m = darkMatterParticles[k];
+          dmCpu[k * 4] = m.x; dmCpu[k * 4 + 1] = m.y; dmCpu[k * 4 + 2] = 0; dmCpu[k * 4 + 3] = 0;
+        }
+        if (renderDmCount > 0) device.queue.writeBuffer(dmBuf, 0, dmCpu, 0, renderDmCount * 4);
+
+        const enc = device.createCommandEncoder();
+        const pass = enc.beginRenderPass({
+          colorAttachments: [{
+            view: R.msaaView,
+            resolveTarget: gctx.getCurrentTexture().createView(),
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+            loadOp: 'clear', storeOp: 'discard'
+          }]
+        });
+        pass.setBindGroup(0, R.bgRender[parity]);
+        if (renderRippleCount > 0) { pass.setPipeline(rpRipple); pass.draw(6, renderRippleCount); }
+        pass.setPipeline(rpGlow);     pass.draw(6, N);
+        pass.setPipeline(rpParticle); pass.draw(6, N);
+        if (renderDmCount > 0) { pass.setPipeline(rpDm); pass.draw(6, renderDmCount); }
+        pass.end();
+        device.queue.submit([enc.finish()]);
+      }
+
+      return { name: 'webgpu', triggerCollapse, step, render, rebuild, snapshot };
+    }
+
+    // ===== 主迴圈：固定步長物理 + 每幀繪製 =====
+    let lastFrameTime = -1;
+    let accumulator = 0;
+    let resizing = false;
+
+    function animate(now) {
+      if (resizing) { requestAnimationFrame(animate); return; }
+      if (lastFrameTime < 0) lastFrameTime = now;
+      let dt = now - lastFrameTime;
+      lastFrameTime = now;
+      if (dt > MAX_FRAME_DT) dt = MAX_FRAME_DT;
+      accumulator += dt;
+
+      let steps = 0;
+      while (accumulator >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+        backend.step(now);
+        accumulator -= STEP_MS;
+        steps++;
+      }
+      if (accumulator >= STEP_MS) accumulator = 0;
+
+      backend.render(now);
+      requestAnimationFrame(animate);
+    }
+
+    // ===== 畫布尺寸管理 =====
+    function isFullscreenLike() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement)
+          || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          || navigator.standalone === true;
+    }
+
+    // 回傳目標模擬尺寸（CSS px）與顯示縮放
+    function computeLayout() {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      if (isFullscreenLike()) {
+        return { w: Math.max(200, Math.round(vw)), h: Math.max(200, Math.round(vh)), scale: 1 };
+      }
+      // 非全螢幕：模擬尺寸固定，視窗太小時只縮小顯示
+      const scale = Math.min(1, vw / WINDOWED_WIDTH, vh / WINDOWED_HEIGHT);
+      return { w: WINDOWED_WIDTH, h: WINDOWED_HEIGHT, scale };
+    }
+
+    function effectiveDpr(w, h) {
+      const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+      return Math.min(dpr, Math.sqrt(MAX_BACKING_PIXELS / (w * h)));
+    }
+
+    function applyCanvasSize(w, h, scale) {
+      DPR = effectiveDpr(w, h);
+      canvas.width = Math.round(w * DPR);
+      canvas.height = Math.round(h * DPR);
+      canvas.style.width = (w * scale) + 'px';
+      canvas.style.height = (h * scale) + 'px';
+    }
+
+    async function applyLayout(initial) {
+      const { w, h, scale } = computeLayout();
+      const dpr = effectiveDpr(w, h);
+      if (!initial && w === CANVAS_WIDTH && h === CANVAS_HEIGHT && dpr === DPR) {
+        canvas.style.width = (w * scale) + 'px';
+        canvas.style.height = (h * scale) + 'px';
+        return;
+      }
+      resizing = true;
+      try {
+        if (!initial) await backend.snapshot();
+        const n = targetParticleCount(w, h);
+        allocateWorld(w, h, n, !initial);
+        applyCanvasSize(w, h, scale);
+        backend.rebuild();
+        document.title = `Particle Life v23 [${backend.name}, ${w}×${h}, N=${N}]`;
+        console.log(`backend=${backend.name} size=${w}x${h} dpr=${DPR} N=${N}`);
+      } finally {
+        accumulator = 0;
+        lastFrameTime = -1;
+        resizing = false;
+      }
+    }
+
+    let resizeTimer = 0;
+    function scheduleLayout() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => applyLayout(false), 150);
+    }
+    window.addEventListener('resize', scheduleLayout);
+    window.addEventListener('orientationchange', scheduleLayout);
+    document.addEventListener('fullscreenchange', scheduleLayout);
+    document.addEventListener('webkitfullscreenchange', scheduleLayout);
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(display-mode: standalone)');
+      if (mq.addEventListener) mq.addEventListener('change', scheduleLayout);
+    }
+
+    (async () => {
+      try {
+        backend = await createGpuBackend();
+      } catch (e) {
+        console.warn('WebGPU 不可用，退回 CPU backend：', e.message);
+        backend = createCpuBackend();
+      }
+      await applyLayout(true);
+      lastChangeTime = performance.now();
+      transitionStartTime = lastChangeTime;
+      rebuildColors();
+      requestAnimationFrame(animate);
+    })();
+
+    // 全螢幕：以瀏覽器實際狀態判斷。iPhone Safari 對非 video 元素不支援 fullscreen API，
+    // 點擊無效；改用「加入主畫面」以 standalone 開啟即為全螢幕。
+    canvas.addEventListener('click', () => {
+      const el = document.documentElement;
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    });
+  </script>
+</body></html>
