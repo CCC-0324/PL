@@ -1,0 +1,2563 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#15222b">
+<title>小野人部落</title>
+<style>
+:root{--ink:#f1e9d4;--pane:rgba(16,24,30,.76);--line:rgba(255,255,255,.14);--acc:#e0a867;--acc2:#b9793a;--bad:#ef8a72}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#15222b;overflow:hidden;font-family:system-ui,-apple-system,"PingFang TC","Noto Sans TC",sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+button{font:inherit;color:var(--ink);cursor:pointer}
+.pane{background:var(--pane);border:1px solid var(--line);border-radius:10px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+#stat{position:fixed;left:8px;top:8px;padding:7px 10px 8px;font-size:12px;width:172px;pointer-events:none}
+#stat .clk span{white-space:nowrap}
+#stat .clk{font-size:13px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px}
+.bar{display:flex;align-items:center;gap:5px;margin-top:3px}
+.bar i{font-style:normal;width:16px;text-align:center}
+.bar b{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;display:block}
+.bar b span{display:block;height:100%;width:50%;border-radius:4px;transition:width .3s}
+#friends{position:fixed;right:8px;top:8px;padding:4px 8px;font-size:12px;width:168px}
+.fr{display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer}
+.fr+.fr{border-top:1px solid var(--line)}
+.fr .nm{font-weight:700;min-width:30px}
+.fr .hv{color:#ff9aa8;min-width:36px;font-size:11.5px}
+.fr .st{opacity:.72;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+#task{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:max-content;max-width:min(460px,calc(100vw - 380px));padding:7px 12px;font-size:13px;line-height:1.45}
+#task .tt{font-weight:700}
+#task .th{font-size:11.5px;opacity:.75}
+@media (max-width:820px){#task{left:8px;right:8px;top:86px;transform:none;width:auto;max-width:none}}
+#tagbar{position:fixed;left:50%;top:24%;transform:translateX(-50%);padding:6px 16px;font-weight:700;font-size:15px;display:none;pointer-events:none;border-color:#e0a867}
+#bag{position:fixed;left:8px;bottom:calc(10px + env(safe-area-inset-bottom));right:142px;display:flex;gap:6px;overflow-x:auto;padding:6px;scrollbar-width:none}
+#bag::-webkit-scrollbar{display:none}
+.slot{position:relative;flex:0 0 48px;height:48px;border-radius:10px;background:rgba(16,24,30,.78);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.slot img{width:38px;height:38px;pointer-events:none}
+.slot .c{position:absolute;right:4px;bottom:1px;font-size:11px;font-weight:700;text-shadow:0 1px 2px #000}
+.slot.on{border-color:var(--acc);background:rgba(185,121,58,.55);box-shadow:0 0 0 1px var(--acc) inset}
+.slot.empty{flex:0 0 auto;padding:0 12px;font-size:12px;opacity:.6;cursor:default}
+#ctrl{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:flex-end}
+#ctrl .col{display:flex;flex-direction:column;gap:7px;align-items:center}
+.rb{background:var(--pane);border:1px solid var(--line);border-radius:10px;padding:0;width:42px;height:42px;font-size:18px}
+.rb.sm{font-size:12px;width:56px;height:30px;visibility:hidden}
+#act{width:76px;height:76px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#efbf88,#b9793a);border:2px solid #f3cd9d;font-size:17px;font-weight:800;color:#2b1a0d;box-shadow:0 4px 14px rgba(0,0,0,.45);padding:0}
+#act:active,.rb:active,.slot:active{transform:scale(.95)}
+#toast{position:fixed;left:50%;top:32%;transform:translateX(-50%);pointer-events:none;display:flex;flex-direction:column;gap:6px;align-items:center;z-index:6;width:92vw}
+.tst{background:rgba(16,24,30,.9);border:1px solid var(--line);padding:7px 14px;border-radius:18px;font-size:13px;animation:tin .25s;text-align:center;max-width:92vw}
+.tst.big{font-size:15px;font-weight:700;border-color:var(--acc)}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+#sheet{position:fixed;left:0;right:0;bottom:0;max-height:58vh;overflow-y:auto;padding:12px 14px calc(16px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0;transform:translateY(105%);transition:transform .22s;z-index:5;max-width:640px;margin:0 auto}
+#sheet.open{transform:none}
+#sheet h3{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+.x{background:none;border:none;font-size:20px;padding:0 4px}
+.rc{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,.05);margin-bottom:6px}
+.rc .ic{width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:27px;flex:0 0 42px}
+.rc .ic img{width:42px;height:42px}
+.rc .inf{flex:1;font-size:12px;line-height:1.55}
+.rc .inf b{font-size:14px}
+.need{display:inline-flex;gap:2px;align-items:center;margin-right:7px;white-space:nowrap}
+.need img{width:18px;height:18px}
+.need.no{color:var(--bad)}
+.dim{opacity:.68}
+.go{background:var(--acc2);border:1px solid var(--acc);border-radius:8px;padding:8px 12px;font-weight:700;flex:0 0 auto}
+.go:disabled{opacity:.32}
+.grid{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.grid .slot{flex:0 0 48px}
+.help{font-size:13px;line-height:1.75}
+.help b{color:var(--acc)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="stat" class="pane">
+  <div class="clk"><span id="clk">☀️ 第 1 天</span><span id="stars">⭐ 0</span></div>
+  <div class="bar"><i>🍖</i><b><span id="bH" style="background:#e8a55a"></span></b></div>
+  <div class="bar"><i>⚡</i><b><span id="bE" style="background:#7fc4e8"></span></b></div>
+</div>
+<div id="friends" class="pane"></div>
+<div id="task" class="pane"><div class="tt" id="tt"></div><div class="th" id="th"></div></div>
+<div id="tagbar" class="pane"></div>
+<div id="bag"></div>
+<div id="ctrl">
+  <div class="col">
+    <button id="bHelp" class="rb">？</button>
+    <button id="bIn" class="rb">＋</button>
+    <button id="bOut" class="rb">－</button>
+  </div>
+  <div class="col">
+    <button id="bDrop" class="rb sm">放下</button>
+    <button id="bCraft" class="rb">🔨</button>
+    <button id="act">休息</button>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="sheet" class="pane"><h3><span id="shT"></span><button class="x" id="shX">✕</button></h3><div id="shB"></div></div>
+<script>
+'use strict';
+/* =========================================================
+   小野人部落
+   座標：2:1 等角，1 tile = 32 model 單位，z 向上
+   iso(x,y,z) → 螢幕 px（未套相機）：+x 往右下、+y 往左下
+   ========================================================= */
+const U = 32, MAP_W = 22, MAP_H = 20, NT = MAP_W * MAP_H;
+const ELEV = [0, 8, 16, 24, 32];
+const BASE_Z = -14, WATER_Z = -2, WATER_FLOOR = -8;
+const TAU = Math.PI * 2, RS2 = Math.SQRT1_2;
+const DAY_MS = 360000;                       // 一天 6 分鐘（6:00 為一天開始）
+const SAVE_KEY = 'yeren_tribe_v1';
+const EMO_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+const iso = (x, y, z) => [x - y, (x + y) * 0.5 - z];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function angDiff(a, b) { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pickR = a => a[(Math.random() * a.length) | 0];
+const gi = (x, y) => y * MAP_W + x;
+const manh = (ax, ay, bx, by) => Math.abs(ax - bx) + Math.abs(ay - by);
+const DIRS = [
+  { dx: 1, dy: 0, a: 0 },
+  { dx: 0, dy: 1, a: Math.PI / 2 },
+  { dx: -1, dy: 0, a: Math.PI },
+  { dx: 0, dy: -1, a: -Math.PI / 2 },
+];
+const dirIdx = (ax, ay, bx, by) => DIRS.findIndex(d => ax + d.dx === bx && ay + d.dy === by);
+let gameT = 0, clock = 0, SEED = 930;
+
+/* ---------------- 地形 ---------------- */
+let map = [], PLAT = [], START = [10, 9];
+const RING = new Uint8Array(NT);
+const inB = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
+const tile = (x, y) => map[y][x];
+const lvl = (x, y) => map[y][x].water ? 0 : map[y][x].lv;
+const groundZ = (x, y) => map[y][x].water ? WATER_FLOOR : ELEV[map[y][x].lv];
+const topZ = (x, y) => map[y][x].water ? WATER_Z : ELEV[map[y][x].lv];
+const terrOK = (ax, ay, bx, by) => inB(bx, by) && Math.abs(lvl(bx, by) - lvl(ax, ay)) <= 1;
+function canMove(ax, ay, bx, by) { return terrOK(ax, ay, bx, by) && !isBlocked(bx, by); }
+function reachFrom(sx, sy, useObj) {
+  const seen = new Uint8Array(NT), q = [gi(sx, sy)]; seen[q[0]] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], cx = c % MAP_W, cy = (c / MAP_W) | 0;
+    for (const d of DIRS) {
+      const nx = cx + d.dx, ny = cy + d.dy; if (!inB(nx, ny)) continue;
+      const id = gi(nx, ny); if (seen[id]) continue;
+      if (useObj ? !canMove(cx, cy, nx, ny) : !terrOK(cx, cy, nx, ny)) continue;
+      seen[id] = 1; q.push(id);
+    }
+  }
+  return { seen, n: q.length };
+}
+function genTerrain(seed) {
+  const R = mulberry32(seed);
+  function valueNoise(cell) {
+    const gw = Math.ceil(MAP_W / cell) + 2, gh = Math.ceil(MAP_H / cell) + 2, g = [];
+    for (let i = 0; i < gw * gh; i++) g.push(R());
+    const sm = t => t * t * (3 - 2 * t);
+    return (x, y) => {
+      const fx = x / cell, fy = y / cell, ix = Math.floor(fx), iy = Math.floor(fy), tx = sm(fx - ix), ty = sm(fy - iy);
+      const v = (i, j) => g[(iy + j) * gw + (ix + i)];
+      return lerp(lerp(v(0, 0), v(1, 0), tx), lerp(v(0, 1), v(1, 1), tx), ty);
+    };
+  }
+  const nA = valueNoise(6), nB = valueNoise(3);
+  const cx = (MAP_W - 1) / 2, cy = (MAP_H - 1) / 2, vals = [];
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    const dx = (x - cx) / (MAP_W * 0.5), dy = (y - cy) / (MAP_H * 0.5);
+    vals.push(nA(x, y) * 0.7 + nB(x, y) * 0.3 - Math.pow(Math.hypot(dx, dy), 2.4) * 0.85);
+  }
+  const sorted = [...vals].sort((a, b) => a - b), qt = p => sorted[Math.floor(p * (sorted.length - 1))];
+  const TH = [qt(.32), qt(.47), qt(.63), qt(.79), qt(.92)];
+  map = [];
+  for (let y = 0; y < MAP_H; y++) {
+    const row = [];
+    for (let x = 0; x < MAP_W; x++) {
+      const v = vals[gi(x, y)]; let lv = 0, water = false;
+      if (v < TH[0] || x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) water = true;
+      else if (v < TH[1]) lv = 0; else if (v < TH[2]) lv = 1; else if (v < TH[3]) lv = 2; else if (v < TH[4]) lv = 3; else lv = 4;
+      row.push({ lv, water, j: (R() - 0.5) * 0.08, plat: false });
+    }
+    map.push(row);
+  }
+  let best = 1e9;
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    const t = map[y][x]; if (t.water) continue;
+    const d = (x - cx) ** 2 + (y - cy) ** 2 + (t.lv === 1 ? 0 : t.lv === 0 || t.lv === 2 ? 6 : 30);
+    if (d < best) { best = d; START = [x, y]; }
+  }
+  // 高台（2x2、lv4，外圈一律 lv2 → 必須堆石階才上得去）
+  let bp = null, bs = -1e9;
+  for (let py = 3; py <= MAP_H - 5; py++) for (let px = 3; px <= MAP_W - 5; px++) {
+    let ok = true, s = 0;
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) { const t = map[py + j][px + i]; if (t.water) ok = false; s += t.lv; }
+    if (!ok) continue;
+    if (START[0] >= px - 2 && START[0] <= px + 3 && START[1] >= py - 2 && START[1] <= py + 3) continue;
+    const dd = manh(px, py, START[0], START[1]);
+    const sc = s + Math.min(dd, 12) * 0.5 + R() * 0.8;
+    if (dd >= 6 && sc > bs) { bs = sc; bp = [px, py]; }
+  }
+  if (!bp) bp = START[0] > MAP_W / 2 ? [3, 3] : [MAP_W - 5, MAP_H - 5];
+  const [px, py] = bp; PLAT = []; RING.fill(0);
+  for (let y = py - 2; y <= py + 3; y++) for (let x = px - 2; x <= px + 3; x++) {
+    if (!inB(x, y)) continue;
+    const t = map[y][x], inner = x >= px && x <= px + 1 && y >= py && y <= py + 1, ring = x >= px - 1 && x <= px + 2 && y >= py - 1 && y <= py + 2;
+    if (inner) { t.water = false; t.lv = 4; t.plat = true; PLAT.push([x, y]); }
+    else if (ring) { t.water = false; t.lv = 2; RING[gi(x, y)] = 1; }
+    else if (!t.water) t.lv = Math.min(t.lv, 3);
+  }
+  // 連通修正：除了高台，陸地都要走得到
+  for (let it = 0; it < 80; it++) {
+    const { seen } = reachFrom(START[0], START[1], false); let ch = false;
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+      const t = map[y][x]; if (seen[gi(x, y)] || t.water || t.plat) continue;
+      for (const d of DIRS) {
+        const nx = x + d.dx, ny = y + d.dy; if (!inB(nx, ny) || !seen[gi(nx, ny)]) continue;
+        let v = clamp(t.lv, lvl(nx, ny) - 1, lvl(nx, ny) + 1); if (RING[gi(x, y)]) v = Math.min(v, 2);
+        v = clamp(v, 0, 4); if (v !== t.lv) { t.lv = v; ch = true; }
+        break;
+      }
+    }
+    if (!ch) break;
+  }
+  return R;
+}
+
+const PAL = {
+  water: { top: [63, 143, 176], L: [38, 94, 118], R: [46, 110, 136] },
+  0: { top: [232, 212, 158], L: [186, 161, 108], R: [205, 181, 126] },
+  1: { top: [214, 201, 134], L: [164, 148, 94], R: [184, 167, 110] },
+  2: { top: [150, 181, 95], L: [102, 126, 68], R: [120, 145, 80] },
+  3: { top: [118, 156, 76], L: [82, 108, 54], R: [96, 126, 64] },
+  4: { top: [156, 150, 140], L: [106, 102, 96], R: [126, 121, 114] },
+};
+const rgb = (c, j) => `rgb(${clamp(c[0] * (1 + j), 0, 255) | 0},${clamp(c[1] * (1 + j), 0, 255) | 0},${clamp(c[2] * (1 + j), 0, 255) | 0})`;
+function poly(ctx, pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fill(); }
+function drawTile(ctx, x, y, time) {
+  const t = map[y][x], z = t.water ? WATER_Z : ELEV[t.lv], pal = t.water ? PAL.water : PAL[t.lv];
+  const x0 = x * U, y0 = y * U, x1 = x0 + U, y1 = y0 + U;
+  const N = iso(x0, y0, z), E = iso(x1, y0, z), S = iso(x1, y1, z), W_ = iso(x0, y1, z);
+  const Sb = iso(x1, y1, BASE_Z), Eb = iso(x1, y0, BASE_Z), Wb = iso(x0, y1, BASE_Z);
+  let j = t.j; if (t.water) j += 0.05 * Math.sin(time * 0.002 + x * 0.9 + y * 0.6);
+  poly(ctx, [E, S, Sb, Eb], rgb(pal.R, j));
+  poly(ctx, [W_, S, Sb, Wb], rgb(pal.L, j));
+  poly(ctx, [N, E, S, W_], rgb(pal.top, j));
+  ctx.strokeStyle = 'rgba(0,0,0,.07)'; ctx.lineWidth = 0.8; ctx.stroke();
+}
+function tileDiamond(ctx, x, y, col, k = 1, lw = 1.2) {
+  const z = topZ(x, y), c = iso((x + .5) * U, (y + .5) * U, z);
+  ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
+  ctx.moveTo(c[0], c[1] - 16 * k); ctx.lineTo(c[0] + 32 * k, c[1]); ctx.lineTo(c[0], c[1] + 16 * k); ctx.lineTo(c[0] - 32 * k, c[1]); ctx.closePath(); ctx.stroke();
+}
+
+/* ---------------- 小工具繪圖 ---------------- */
+function cap(ctx, a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+function disc(ctx, p, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, TAU); ctx.fill(); }
+function blob(c, x, y, rx, ry, fill, ol, lw = 1) { c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fillStyle = fill; c.fill(); if (ol) { c.lineWidth = lw; c.strokeStyle = ol; c.stroke(); } }
+const dep = p => p[0] + p[1] + p[2] * 0.05;
+
+/* ---------------- 物品 ---------------- */
+const IT = {
+  stick: { n: '樹枝' }, stone: { n: '石塊' }, grass: { n: '乾草' },
+  berry: { n: '莓果', food: 16 }, fruit: { n: '果子', food: 28 },
+  mushroom: { n: '香菇', food: 12, cook: 'cookedMush' }, cookedMush: { n: '烤香菇', food: 26 },
+  fish: { n: '生魚', cook: 'cookedFish' }, cookedFish: { n: '烤魚', food: 50 },
+  seed: { n: '種子' }, shell: { n: '貝殼' }, flower: { n: '小花' }, wreath: { n: '花圈' },
+  axe: { n: '石斧', tool: 1 }, spear: { n: '魚叉', tool: 1 }, egg: { n: '神秘蛋' },
+};
+const RECIPES = [
+  { id: 'axe', n: '石斧', need: { stick: 1, stone: 1 }, out: 'axe', desc: '搖樹一次拿兩根樹枝' },
+  { id: 'spear', n: '魚叉', need: { stick: 2, stone: 1 }, out: 'spear', desc: '抓魚成功率大增' },
+  { id: 'wreath', n: '花圈', need: { flower: 3 }, out: 'wreath', desc: '夥伴最愛的禮物' },
+  { id: 'fire', n: '營火', need: { stick: 3, stone: 2 }, build: 'fire', emo: '🔥', desc: '烤食物、夜裡照明，要記得加柴' },
+  { id: 'basket', n: '儲物籃', need: { grass: 3, stick: 1 }, build: 'basket', emo: '🧺', desc: '部落共用倉庫，阿蓬會把收成放進來' },
+  { id: 'hut', n: '草屋', need: { stick: 4, grass: 4 }, build: 'hut', emo: '🛖', desc: '在旁邊睡覺，精力恢復最快' },
+  { id: 'step', n: '石階', need: { stone: 3 }, terrain: true, emo: '🪨', desc: '把旁邊一格墊高一層（水面會填成沙地）' },
+];
+function drawItemIcon(c, k, x, y, s = 1) {
+  c.save(); c.translate(x, y); c.scale(s, s); c.lineCap = 'round'; c.lineJoin = 'round';
+  const OL = '#3e2616';
+  switch (k) {
+    case 'stick':
+      cap(c, [-5, 3.5], [5, -3.5], 3, OL); cap(c, [-5, 3.5], [5, -3.5], 1.8, '#a0703f');
+      cap(c, [1, -0.7], [2.2, -4.2], 2.2, OL); cap(c, [1, -0.7], [2.2, -4.2], 1.1, '#a0703f'); break;
+    case 'stone': blob(c, 0, 0.5, 4.8, 3.6, '#99958d', OL, 0.9); blob(c, -1.3, -0.6, 2, 1.1, '#c3bfb6'); break;
+    case 'grass':
+      for (const a of [-0.5, -0.25, 0, 0.25, 0.5]) { const ex = Math.sin(a) * 6.5, ey = -Math.cos(a) * 6.5 + 2.5; cap(c, [0, 4], [ex, ey], 2.2, '#5d6a2a'); cap(c, [0, 4], [ex, ey], 1.2, '#d3c86e'); }
+      cap(c, [-2, 2], [2, 2], 1.8, '#8a6030'); break;
+    case 'berry':
+      blob(c, -1.2, -3.8, 2.2, 1.1, '#5f9a44', OL, 0.6);
+      for (const [bx, by] of [[-2, 0.8], [2, 0.8], [0, -1.8]]) { blob(c, bx, by, 2.3, 2.3, '#7b3aa3', OL, 0.8); blob(c, bx - 0.7, by - 0.8, 0.6, 0.6, '#e6c9f5'); }
+      break;
+    case 'fruit':
+      cap(c, [0, -3], [0.6, -5], 1.2, '#5c3a1e'); blob(c, 2.2, -4.4, 2.2, 1.1, '#6aa84f', OL, 0.6);
+      blob(c, 0, 0.5, 3.9, 3.7, '#e8742f', OL, 0.9); blob(c, -1.3, -0.8, 1.1, 0.9, '#ffc79a'); break;
+    case 'mushroom': case 'cookedMush': {
+      const ck = k === 'cookedMush';
+      c.strokeStyle = OL; c.lineWidth = 0.8; c.fillStyle = ck ? '#d9b48a' : '#f2e6cf';
+      c.beginPath(); c.rect(-1.6, -1, 3.2, 4.6); c.fill(); c.stroke();
+      c.beginPath(); c.ellipse(0, -1, 5, 3.6, 0, Math.PI, 0); c.closePath(); c.fillStyle = ck ? '#8e4a26' : '#d2453a'; c.fill(); c.stroke();
+      if (!ck) { blob(c, -2, -2.6, 0.8, 0.7, '#fff'); blob(c, 1.8, -2.2, 0.7, 0.6, '#fff'); blob(c, 0, -3.8, 0.6, 0.5, '#fff'); }
+      else { cap(c, [-2.5, -2], [-1, -3.5], 0.6, '#5a2c14'); cap(c, [1, -2], [2.5, -3.5], 0.6, '#5a2c14'); }
+      break;
+    }
+    case 'fish': case 'cookedFish': {
+      const ck = k === 'cookedFish', col = ck ? '#c27a3c' : '#7aa7c4';
+      c.beginPath(); c.moveTo(3.2, 0); c.lineTo(6.4, -2.9); c.lineTo(6.4, 2.9); c.closePath(); c.fillStyle = col; c.fill(); c.strokeStyle = OL; c.lineWidth = 0.8; c.stroke();
+      blob(c, -0.8, 0, 4.9, 2.7, col, OL, 0.9); blob(c, -3.4, -0.6, 0.7, 0.7, '#1c1c1c');
+      if (ck) { c.strokeStyle = '#6b3a18'; c.lineWidth = 0.8; for (const dx of [-1.5, 0.5, 2.5]) { c.beginPath(); c.moveTo(dx - 1, -2); c.lineTo(dx + 0.5, 2); c.stroke(); } }
+      else blob(c, -1, -1.1, 2.5, 0.7, 'rgba(255,255,255,.45)');
+      break;
+    }
+    case 'seed':
+      c.beginPath(); c.moveTo(0, -3.8); c.quadraticCurveTo(3.2, 0, 0, 3.4); c.quadraticCurveTo(-3.2, 0, 0, -3.8); c.closePath();
+      c.fillStyle = '#8d5a2b'; c.fill(); c.strokeStyle = OL; c.lineWidth = 0.8; c.stroke(); blob(c, -0.7, -1, 0.6, 1, '#c79a66'); break;
+    case 'shell':
+      c.beginPath(); c.moveTo(0, 3.4); c.lineTo(-4.8, -1); c.quadraticCurveTo(0, -5.8, 4.8, -1); c.closePath();
+      c.fillStyle = '#f4bdb3'; c.fill(); c.strokeStyle = OL; c.lineWidth = 0.8; c.stroke();
+      c.strokeStyle = '#c98378'; c.lineWidth = 0.6;
+      for (let i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(0, 3.2); c.lineTo(i * 1.8, -3.4 + Math.abs(i) * 0.9); c.stroke(); }
+      break;
+    case 'flower':
+      cap(c, [0, 1], [0, 5], 1.2, '#4f8a3f');
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - Math.PI / 2; blob(c, Math.cos(a) * 2.6, Math.sin(a) * 2.6 - 0.8, 1.9, 1.9, '#f7a6c6', OL, 0.6); }
+      blob(c, 0, -0.8, 1.5, 1.5, '#f4c23c', OL, 0.6); break;
+    case 'wreath':
+      c.strokeStyle = '#2f5a28'; c.lineWidth = 3.2; c.beginPath(); c.ellipse(0, 0, 4.6, 4, 0, 0, TAU); c.stroke();
+      c.strokeStyle = '#5f9c48'; c.lineWidth = 2; c.beginPath(); c.ellipse(0, 0, 4.6, 4, 0, 0, TAU); c.stroke();
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; blob(c, Math.cos(a) * 4.6, Math.sin(a) * 4, 1.35, 1.35, i % 2 ? '#f7a6c6' : '#fff3a0', OL, 0.5); }
+      break;
+    case 'axe':
+      cap(c, [-4, 5], [3, -4], 2.9, OL); cap(c, [-4, 5], [3, -4], 1.8, '#a0703f');
+      c.beginPath(); c.moveTo(0.5, -6.2); c.lineTo(6, -4.6); c.lineTo(4.8, 0.2); c.lineTo(1.4, -2); c.closePath();
+      c.fillStyle = '#9a968e'; c.fill(); c.strokeStyle = OL; c.lineWidth = 0.9; c.stroke(); break;
+    case 'spear':
+      cap(c, [-6, 6], [4, -4], 2.5, OL); cap(c, [-6, 6], [4, -4], 1.4, '#a0703f');
+      c.beginPath(); c.moveTo(2.2, -4.8); c.lineTo(7.4, -7.4); c.lineTo(4.8, -2.2); c.closePath();
+      c.fillStyle = '#9a968e'; c.fill(); c.strokeStyle = OL; c.lineWidth = 0.9; c.stroke(); break;
+    case 'egg':
+      blob(c, 0, 0, 4.3, 5.5, '#f4ecd2', OL, 1); blob(c, -1.5, -1.5, 1, 0.8, '#a6c47a'); blob(c, 1.6, 1, 1.2, 1, '#a6c47a');
+      blob(c, -0.4, 2.9, 0.8, 0.6, '#a6c47a'); blob(c, -1.8, -3.1, 0.9, 1.2, 'rgba(255,255,255,.7)'); break;
+  }
+  c.restore();
+}
+const ICON = {};
+function iconURL(k) {
+  if (!ICON[k]) {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    drawItemIcon(c.getContext('2d'), k, 32, 34, 4.4); ICON[k] = c.toDataURL();
+  }
+  return ICON[k];
+}
+
+/* ---------------- 世界物件 ---------------- */
+const W = { objs: [], grid: new Array(NT).fill(null), nid: 1 };
+const objAt = (x, y) => inB(x, y) ? W.grid[gi(x, y)] : null;
+const BLOCK = { tree: 1, fruitTree: 1, bush: 1, boulder: 1, fire: 1, hut: 1, basket: 1, cairn: 1 };
+function isBlocked(x, y) { const o = W.grid[gi(x, y)]; return !!(o && BLOCK[o.type]); }
+function addObj(o) {
+  if (!o.id) o.id = W.nid++; else W.nid = Math.max(W.nid, o.id + 1);
+  if (o.born == null) o.born = gameT;
+  o.shake = 0; W.objs.push(o); W.grid[gi(o.x, o.y)] = o; return o;
+}
+function removeObj(o) { const i = W.objs.indexOf(o); if (i >= 0) W.objs.splice(i, 1); if (W.grid[gi(o.x, o.y)] === o) W.grid[gi(o.x, o.y)] = null; }
+function resetWorld() { W.objs = []; W.grid.fill(null); W.nid = 1; }
+const hasObj = t => W.objs.some(o => o.type === t);
+const mkPile = (x, y, k, n, by) => ({ type: 'pile', x, y, k, n, by: by || null, warm: 0 });
+function mkStruct(kind, x, y, by) {
+  const o = { type: kind, x, y, by };
+  if (kind === 'fire') o.fuel = 100;
+  if (kind === 'basket') o.items = [];
+  if (kind === 'hut') o.occ = null;
+  return o;
+}
+function yerenAt(x, y, except) { for (const o of ALL) if (o !== except && o.tx === x && o.ty === y) return o; return null; }
+function validBuild(x, y) {
+  return inB(x, y) && !map[y][x].water && !map[y][x].plat && !objAt(x, y) && !yerenAt(x, y, null)
+    && x > 0 && y > 0 && x < MAP_W - 1 && y < MAP_H - 1;
+}
+function canRaise(x, y) {
+  if (!inB(x, y) || x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1) return false;
+  const t = map[y][x];
+  return !objAt(x, y) && !t.plat && (t.water || t.lv < 4) && !yerenAt(x, y, null);
+}
+const plantable = (x, y) => validBuild(x, y);
+function dropNear(x, y, k, n, by) {
+  const q = [[x, y]], seen = new Set([gi(x, y)]);
+  for (let h = 0; h < q.length && h < 80; h++) {
+    const [cx, cy] = q[h], t = map[cy][cx], o = objAt(cx, cy);
+    if (!t.water && (!o || (o.type === 'pile' && o.k === k))) {
+      if (o) { o.n += n; o.born = gameT; if (by) o.by = by; } else addObj(mkPile(cx, cy, k, n, by));
+      return true;
+    }
+    for (const d of DIRS) {
+      const nx = cx + d.dx, ny = cy + d.dy; if (!inB(nx, ny) || seen.has(gi(nx, ny)) || !terrOK(cx, cy, nx, ny)) continue;
+      seen.add(gi(nx, ny)); q.push([nx, ny]);
+    }
+  }
+  return false;
+}
+function placeObjects(R) {
+  let reachN = reachFrom(START[0], START[1], true).n;
+  const REACH = reachFrom(START[0], START[1], true).seen;
+  const ok = (x, y) => REACH[gi(x, y)] && !map[y][x].water && !map[y][x].plat && !RING[gi(x, y)] && !objAt(x, y) && manh(x, y, START[0], START[1]) >= 2;
+  function put(o) {
+    addObj(o);
+    if (BLOCK[o.type]) { const r = reachFrom(START[0], START[1], true); if (r.n < reachN - 1) { removeObj(o); return false; } reachN = r.n; }
+    return true;
+  }
+  const mk = {
+    tree: (x, y) => ({ type: 'tree', x, y, sticks: 3, rg: 0 }),
+    fruitTree: (x, y) => ({ type: 'fruitTree', x, y, fruit: 2, grow: 1, rg: 0 }),
+    bush: (x, y) => ({ type: 'bush', x, y, berries: 3, rg: 0 }),
+    boulder: (x, y) => ({ type: 'boulder', x, y, stones: 3, rg: 0 }),
+    grass: (x, y) => ({ type: 'grass', x, y, n: 2, rg: 0 }),
+  };
+  const all = []; for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) all.push([x, y]);
+  const near = (lvs, md) => all.filter(([x, y]) => ok(x, y) && lvs.includes(lvl(x, y)) && manh(x, y, START[0], START[1]) <= md)
+    .sort((a, b) => manh(a[0], a[1], START[0], START[1]) - manh(b[0], b[1], START[0], START[1]));
+  for (const [t, lvs, md] of [['tree', [1, 2, 3], 5], ['bush', [0, 1, 2], 5], ['boulder', [0, 1, 2, 3], 6], ['grass', [0, 1, 2], 5], ['fruitTree', [1, 2, 3], 8], ['tree', [1, 2, 3], 7]])
+    for (const [x, y] of near(lvs, md)) if (put(mk[t](x, y))) break;
+  const sh = all.slice();
+  for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [sh[i], sh[j]] = [sh[j], sh[i]]; }
+  const quota = { tree: 13, fruitTree: 2, bush: 5, boulder: 4, grass: 8 };
+  for (const [x, y] of sh) {
+    if (!ok(x, y)) continue;
+    const l = lvl(x, y); let t = null;
+    if (l >= 2 && l <= 3 && quota.tree > 0 && R() < .32) t = 'tree';
+    else if (l >= 3 && quota.boulder > 0 && R() < .22) t = 'boulder';
+    else if (l >= 1 && l <= 2 && quota.bush > 0 && R() < .14) t = 'bush';
+    else if (l >= 1 && l <= 2 && quota.fruitTree > 0 && R() < .07) t = 'fruitTree';
+    else if (l <= 2 && quota.grass > 0 && R() < .2) t = 'grass';
+    if (t && put(mk[t](x, y))) quota[t]--;
+  }
+  const pq = { flower: 5, shell: 5, mushroom: 3 };
+  for (const [x, y] of sh) {
+    if (!ok(x, y)) continue;
+    const l = lvl(x, y);
+    if (l === 0 && pq.shell > 0 && R() < .35) { addObj(mkPile(x, y, 'shell', 1)); pq.shell--; }
+    else if (l >= 2 && pq.flower > 0 && R() < .1) { addObj(mkPile(x, y, 'flower', 1)); pq.flower--; }
+    else if (l >= 2 && pq.mushroom > 0 && R() < .06) { addObj(mkPile(x, y, 'mushroom', 1)); pq.mushroom--; }
+  }
+  addObj(mkPile(PLAT[0][0], PLAT[0][1], 'egg', 1));
+  addObj(mkPile(PLAT[3][0], PLAT[3][1], 'flower', 2));
+}
+function spawnPiles(k, lvs, n) {
+  const reach = reachFrom(ME.tx, ME.ty, true).seen, c = [];
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++)
+    if (reach[gi(x, y)] && !map[y][x].water && !map[y][x].plat && !objAt(x, y) && lvs.includes(lvl(x, y)) && !yerenAt(x, y, null)) c.push([x, y]);
+  for (let i = 0; i < n && c.length; i++) { const j = (Math.random() * c.length) | 0, [x, y] = c.splice(j, 1)[0]; addObj(mkPile(x, y, k, 1)); }
+}
+function raiseTile(x, y) {
+  const t = map[y][x];
+  if (t.water) { t.water = false; t.lv = 0; } else t.lv = Math.min(4, t.lv + 1);
+  for (const f of FISH) if (Math.floor(f.x / U) === x && Math.floor(f.y / U) === y) fishGoal(f, (x + .5) * U, (y + .5) * U);
+  const z = topZ(x, y);
+  for (let k = 0; k < 9; k++) { const a = k / 9 * TAU; fx.push({ k: 'dust', x: (x + .5) * U, y: (y + .5) * U, z: z + 1, vx: Math.cos(a) * 0.035, vy: Math.sin(a) * 0.035, vz: 0.01, t: 0, life: 520, r: 1.8, c: '#bdb8ae' }); }
+}
+
+/* ---------------- 特效 ---------------- */
+const fx = [], floaters = [];
+function updateFx(dt) {
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i]; f.t += dt;
+    if (f.t >= f.life) { fx.splice(i, 1); continue; }
+    switch (f.k) {
+      case 'dust': f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.vz *= 0.995; break;
+      case 'drop': f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.vz -= 0.0003 * dt; if (f.z < WATER_Z) f.t = f.life; break;
+      case 'leaf': f.x += f.vx * dt; f.y += f.vy * dt; f.z = Math.max(f.gz, f.z + f.vz * dt); f.vz = Math.max(-0.018, f.vz - 0.00005 * dt); break;
+      case 'conf': f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; f.vz -= 0.00022 * dt; if (f.z < f.gz) { f.z = f.gz; f.vx *= 0.4; f.vy *= 0.4; f.vz = 0; } break;
+      case 'smoke': f.z += 0.012 * dt; f.x += 0.004 * dt; f.y -= 0.002 * dt; break;
+      case 'spark': f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt; break;
+    }
+  }
+  if (fx.length > 500) fx.splice(0, fx.length - 500);
+  for (let i = floaters.length - 1; i >= 0; i--) { const f = floaters[i]; f.t += dt; f.z += dt * 0.012; if (f.t > f.life) floaters.splice(i, 1); }
+}
+function drawFx(ctx) {
+  for (const f of fx) {
+    const k = f.t / f.life, [sx, sy] = iso(f.x, f.y, f.z);
+    switch (f.k) {
+      case 'dust': ctx.globalAlpha = (1 - k) * 0.55; ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc(sx, sy, f.r * (1 + k * 1.2), 0, TAU); ctx.fill(); break;
+      case 'ring': { const r = (f.r0 + k * f.grow) * 1.414; ctx.globalAlpha = (1 - k) * 0.6; ctx.strokeStyle = '#e6f5ff'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.ellipse(sx, sy, r, r * 0.5, 0, 0, TAU); ctx.stroke(); break; }
+      case 'drop': ctx.globalAlpha = 0.8; ctx.fillStyle = '#d9f0ff'; ctx.beginPath(); ctx.arc(sx, sy, 0.8, 0, TAU); ctx.fill(); break;
+      case 'leaf': ctx.globalAlpha = Math.min(1, (1 - k) * 2); ctx.fillStyle = f.c; ctx.beginPath(); ctx.ellipse(sx, sy, 1.8, 0.9, f.t * 0.01 + f.r, 0, TAU); ctx.fill(); break;
+      case 'conf': ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = f.c; ctx.save(); ctx.translate(sx, sy); ctx.rotate(f.t * 0.012 + f.r); ctx.fillRect(-1.4, -0.8, 2.8, 1.6); ctx.restore(); break;
+      case 'smoke': ctx.globalAlpha = (1 - k) * 0.28; ctx.fillStyle = '#c9c6c0'; ctx.beginPath(); ctx.arc(sx, sy, 1.6 + k * 5, 0, TAU); ctx.fill(); break;
+      case 'spark': { ctx.globalAlpha = Math.sin(k * Math.PI); ctx.fillStyle = f.c || '#fff6c2'; const r = f.r || 1.3; ctx.beginPath(); ctx.moveTo(sx, sy - r * 2); ctx.lineTo(sx + r * 0.6, sy); ctx.lineTo(sx, sy + r * 2); ctx.lineTo(sx - r * 0.6, sy); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(sx - r * 2, sy); ctx.lineTo(sx, sy + r * 0.6); ctx.lineTo(sx + r * 2, sy); ctx.lineTo(sx, sy - r * 0.6); ctx.closePath(); ctx.fill(); break; }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+const dustColor = t => t.lv >= 4 ? '#c9c3b8' : t.lv >= 2 ? '#c3cf95' : '#efe0b2';
+function floatTxt(y, txt, c = '#fff6d8') { floaters.push({ x: y.x, y: y.y, z: y.z + 50, txt, c, t: 0, life: 1500 }); }
+function confetti(x, y, z, n = 40) {
+  const cs = ['#f7a6c6', '#f4c23c', '#8fcf6a', '#7fc4e8', '#e8742f', '#fff'];
+  for (let i = 0; i < n; i++) fx.push({ k: 'conf', x, y, z: z + 20, gz: z, vx: rnd(-0.05, 0.05), vy: rnd(-0.05, 0.05), vz: rnd(0.05, 0.11), t: 0, life: rnd(1400, 2200), c: pickR(cs), r: rnd(0, 6) });
+}
+function leafFx(o) {
+  const cx = (o.x + .5) * U, cy = (o.y + .5) * U, z = topZ(o.x, o.y);
+  for (let i = 0; i < 6; i++) fx.push({ k: 'leaf', x: cx + rnd(-10, 10), y: cy + rnd(-10, 10), z: z + rnd(28, 40), gz: z + 0.5, vx: rnd(-0.01, 0.01), vy: rnd(-0.01, 0.01), vz: 0, t: 0, life: rnd(1100, 1700), c: pickR(['#58913f', '#6aa84f', '#3f6b35']), r: rnd(0, 6) });
+}
+function chipFx(o) {
+  const cx = (o.x + .5) * U, cy = (o.y + .5) * U, z = topZ(o.x, o.y);
+  for (let i = 0; i < 6; i++) fx.push({ k: 'dust', x: cx + rnd(-6, 6), y: cy + rnd(-6, 6), z: z + rnd(4, 12), vx: rnd(-0.03, 0.03), vy: rnd(-0.03, 0.03), vz: rnd(0.005, 0.02), t: 0, life: 500, r: 1.2, c: '#bdb8ae' });
+}
+function splash(x, y) {
+  fx.push({ k: 'ring', x, y, z: WATER_Z, t: 0, life: 800, r0: 3, grow: 10 });
+  for (let n = 0; n < 6; n++) fx.push({ k: 'drop', x, y, z: WATER_Z + 0.5, vx: rnd(-0.03, 0.03), vy: rnd(-0.03, 0.03), vz: rnd(0.04, 0.08), t: 0, life: 700 });
+}
+
+/* =========================================================
+   小野人 Yeren
+   ========================================================= */
+const COL = {
+  skin: '#f3c49b', skinB: '#dea77c', line: '#5a321d',
+  hair: '#4e2f1c', hairHi: '#8a5a36',
+  tunic: '#d88c40', spot: '#8a4f22',
+  eye: '#2f1c12', blush: 'rgba(255,120,110,.2)', mouth: '#8e3a2a',
+  tooth: '#fbf2de',
+};
+const BROW_W = 1.6;
+const HIP_Z = 11.5, SH_Z = 20, HEAD_Z = 30.5;
+const L1 = 5.4, L2 = 5.6, ANKLE = 1.8;
+const LU = 4.8, LF = 4.4;
+const RH = 8.6, RV = 11.2, HEAD_R = 12;
+const STEP_PER_TILE = 3 * Math.PI;
+const LAYER_HYST = 0.1;
+
+class Yeren {
+  constructor(tx, ty, opt = {}) {
+    this.name = opt.name || '我'; this.isMe = !!opt.me; this.cap = opt.cap || 8;
+    this.col = Object.assign({}, COL, opt.col || {}); this.hairStyle = opt.hair || 'spiky'; this.band = opt.band || null;
+    this.tx = tx; this.ty = ty; this.fx = tx; this.fy = ty;
+    this.x = (tx + .5) * U; this.y = (ty + .5) * U; this.gz = groundZ(tx, ty); this.hop = 0; this.hopH = 0;
+    this.moving = false; this.moveT = 0; this.moveDur = 1; this.leftover = 0; this.running = false;
+    this.face = Math.PI / 2; this.faceT = this.face;
+    this.phase = 0; this.blend = 0; this.runB = 0;
+    this.squash = 0; this.bump = 0; this.t = Math.random() * 5000;
+    this.headYaw = 0; this.headYawT = 0; this.lookTimer = 2500;
+    this.blinkTimer = 2200; this.blink = 0;
+    this.prevCos = [1, -1]; this.rippleT = 0; this.hPrev = 16;
+    this.anim = null; this.animK = null; this.animT = 0; this.animB = 0; this.crouchB = 0; this.holdB = 0; this.sadB = 0; this.sad = false;
+    this.hold = null; this.emo = null; this.zT = 0;
+    this.hunger = 85; this.energy = 90; this.fun = 70; this.social = 60; this.sleepQ = 1; this.speedMul = 1; this.fleeMul = 1;
+    this.bag = []; this.sel = null; this.ai = null;
+    this.buildHair(); this.computePose(); this.resetHair(); this.updateLayers(true);
+  }
+  get z() { return this.gz + this.hop; }
+  get progress() { return this.moving ? Math.min(1, this.moveT / this.moveDur) : 1; }
+  sortKey() { return this.moving ? Math.max(this.fx + this.fy, this.tx + this.ty) : this.tx + this.ty; }
+  underTile() { const p = this.progress; return p < 0.5 ? tile(this.fx, this.fy) : tile(this.tx, this.ty); }
+  doAnim(k, dur, cb, item) { this.anim = { k, t: 0, dur: dur || 0, cb: cb || null, item: item || null }; this.animK = k; this.animT = 0; }
+  emote(e, dur = 1600) { this.emo = { e, t: 0, dur }; }
+  faceAng(a) { this.faceT = this.face + angDiff(a, this.face); }
+  faceXY(x, y) { const dx = x - this.x, dy = y - this.y; if (Math.abs(dx) + Math.abs(dy) > 0.5) this.faceAng(Math.atan2(dy, dx)); }
+  faceTile(x, y) { this.faceXY((x + .5) * U, (y + .5) * U); }
+  frontTile() {
+    let bi = 0, bd = 9;
+    DIRS.forEach((d, i) => { const a = Math.abs(angDiff(d.a, this.faceT)); if (a < bd) { bd = a; bi = i; } });
+    return [this.tx + DIRS[bi].dx, this.ty + DIRS[bi].dy];
+  }
+  get sleeping() { return !!(this.anim && this.anim.k === 'sleep'); }
+
+  tryStep(di, run) {
+    if (this.anim && (this.anim.k === 'sit' || this.anim.k === 'sleep')) this.anim = null;
+    const d = DIRS[di];
+    this.faceT = this.face + angDiff(d.a, this.face);
+    const nx = this.tx + d.dx, ny = this.ty + d.dy;
+    if (!canMove(this.tx, this.ty, nx, ny)) { if (this.bump < 0.12) this.bump = 1; return false; }
+    const dl = lvl(nx, ny) - lvl(this.tx, this.ty);
+    const wet = tile(nx, ny).water || tile(this.tx, this.ty).water;
+    this.fx = this.tx; this.fy = this.ty; this.tx = nx; this.ty = ny;
+    this.moveDur = (run ? 260 : 440) * (wet ? 1.45 : 1) * (dl > 0 ? 1.15 : 1) * this.speedMul;
+    this.hopH = dl !== 0 ? 6 + Math.abs(dl) * 3 : 0;
+    this.moveT = this.leftover; this.leftover = 0;
+    this.moving = true; this.running = run;
+    return true;
+  }
+
+  update(dt) {
+    const s = dt / 1000; this.t += dt;
+    if (this.anim) {
+      this.anim.t += dt; this.animT = this.anim.t; this.animK = this.anim.k;
+      if (this.anim.dur > 0 && this.anim.t >= this.anim.dur) { const cb = this.anim.cb; this.anim = null; if (cb) cb(); }
+    }
+    const ak = this.anim ? this.anim.k : null;
+    this.animB += ((this.anim ? 1 : 0) - this.animB) * Math.min(1, s * 9);
+    if (!this.anim && this.animB < 0.02) this.animK = null;
+    this.crouchB += ((ak === 'sleep' || ak === 'sit' ? 1 : 0) - this.crouchB) * Math.min(1, s * 5);
+    this.holdB += ((this.hold && !this.anim ? 1 : 0) - this.holdB) * Math.min(1, s * 8);
+    this.sadB += ((this.sad && !this.anim ? 1 : 0) - this.sadB) * Math.min(1, s * 3);
+    if (this.emo) { this.emo.t += dt; if (this.emo.t > this.emo.dur) this.emo = null; }
+    if (ak === 'sleep') { this.zT -= dt; if (this.zT <= 0) { this.zT = 2900; if (!this.emo) this.emote('💤', 1900); } }
+
+    let dist = 0;
+    if (this.moving) {
+      this.moveT += dt;
+      const p = Math.min(1, this.moveT / this.moveDur);
+      const nx = lerp((this.fx + .5) * U, (this.tx + .5) * U, p), ny = lerp((this.fy + .5) * U, (this.ty + .5) * U, p);
+      dist = Math.hypot(nx - this.x, ny - this.y); this.x = nx; this.y = ny;
+      const z0 = groundZ(this.fx, this.fy), z1 = groundZ(this.tx, this.ty);
+      if (this.hopH > 0) { const e = p * p * (3 - 2 * p); this.gz = lerp(z0, z1, e); this.hop = this.hopH * Math.sin(p * Math.PI); }
+      else { this.gz = lerp(z0, z1, p); this.hop = 0; }
+      if (p >= 1) {
+        this.moving = false; this.leftover = this.moveT - this.moveDur; this.hop = 0; this.gz = z1;
+        if (this.hopH > 0) { this.squash = 1; this.landFx(); }
+      }
+    } else { this.leftover = 0; this.gz = groundZ(this.tx, this.ty); }
+
+    this.blend = this.moving ? Math.min(1, this.blend + s * 7) : Math.max(0, this.blend - s * 4);
+    this.runB += ((this.moving && this.running ? 1 : 0) - this.runB) * Math.min(1, s * 6);
+    this.phase += dist * (STEP_PER_TILE / U);
+    if (!this.moving) { const tp = Math.round(this.phase / Math.PI) * Math.PI; this.phase += (tp - this.phase) * Math.min(1, s * 6); }
+    this.face += (this.faceT - this.face) * Math.min(1, s * 14);
+
+    if (ak === 'inspect') this.headYawT = 0.7 * Math.sin(this.animT * 0.0035);
+    else if (ak === 'sleep') this.headYawT = 0;
+    else if (!this.moving && this.blend < 0.05) {
+      this.lookTimer -= dt;
+      if (this.lookTimer <= 0) { this.headYawT = Math.random() < 0.35 ? 0 : Math.random() * 1.3 - 0.65; this.lookTimer = 1200 + Math.random() * 2800; }
+    } else { this.headYawT = 0; this.lookTimer = 1500; }
+    this.headYaw += (this.headYawT - this.headYaw) * Math.min(1, s * (this.moving ? 10 : 4));
+
+    if (ak !== 'sleep') { this.blinkTimer -= dt; if (this.blinkTimer <= 0) { this.blink = 1; this.blinkTimer = 1800 + Math.random() * 3500; } }
+    this.blink = Math.max(0, this.blink - s * 7);
+    this.squash = Math.max(0, this.squash - s * 4.5);
+    this.bump = Math.max(0, this.bump - s * 2.6);
+
+    for (let i = 0; i < 2; i++) {
+      const c = Math.cos(this.phase + i * Math.PI);
+      if (this.prevCos[i] > 0 && c <= 0 && this.blend > 0.35 && this.hop < 0.5) this.footFx(i);
+      this.prevCos[i] = c;
+    }
+    if (!this.moving && this.underTile().water) {
+      this.rippleT -= dt;
+      if (this.rippleT <= 0) { this.rippleT = 1100; fx.push({ k: 'ring', x: this.x, y: this.y, z: WATER_Z, t: 0, life: 1400, r0: 6, grow: 7 }); }
+    }
+
+    this.computePose();
+    this.updateLayers(false);
+    const n = Math.max(1, Math.ceil(dt / 16)), h = dt / n;
+    for (let i = 0; i < n; i++) this.simHair(h);
+  }
+
+  /* ---------- 骨架 ---------- */
+  computePose() {
+    const b = this.blend, rb = this.runB, ph = this.phase, t = this.t;
+    const ak = this.animK, ab = this.animB, at = this.animT, cr = this.crouchB, hb = this.holdB, sd = this.sadB;
+    const f0 = Math.cos(this.face), f1 = Math.sin(this.face), s0 = -f1, s1 = f0;
+    const cheer = ak === 'cheer' ? ab * Math.abs(Math.sin(at * 0.011)) * 3.5 : 0;
+    const X = this.x, Y = this.y, Z = this.z + cheer;
+    const L = (u, v, z) => [X + f0 * u + s0 * v, Y + f1 * u + s1 * v, Z + z];
+    const air = (this.moving && this.hopH > 0) ? Math.sin(this.progress * Math.PI) : 0;
+    const slp = ak === 'sleep' ? ab : 0, work = ak === 'work' ? ab : 0, insp = ak === 'inspect' ? ab : 0;
+    const breath = Math.sin(t * (slp > 0.5 ? 0.0018 : 0.0026)) * (1 + slp);
+    const crouch = cr * 4.6;
+    const bob = b * (1.0 + 0.7 * rb) * Math.cos(2 * ph) * (1 - air) - this.squash * 2.2 + (1 - b) * breath * 0.25;
+    const lean = b * (1.0 + 2.0 * rb) + Math.sin(this.bump * Math.PI) * 2.6 + work * (1.2 + Math.sin(at * 0.016) * 0.9) + insp * 2.2 + cr * 1.4 + sd * 0.7;
+    const sway = b * Math.sin(ph) * (0.6 - 0.25 * rb);
+    const P = { f: [f0, f1], s: [s0, s1], air };
+    P.hip = L(lean * 0.25, sway * 0.6, HIP_Z + bob - crouch);
+    P.sh = L(lean, sway, SH_Z + bob - crouch + (1 - b) * breath * 0.35);
+    const nod = -b * (0.4 + 0.5 * rb) * Math.cos(2 * ph - 0.7);
+    P.head = L(lean * 1.25 + slp * 1.2, sway * 1.1, HEAD_Z + bob * 1.15 - crouch + nod * 0.6 + (1 - b) * breath * 0.3 - slp * 2 - sd * 1.2);
+    P.roll = b * Math.sin(ph) * 0.09 + this.headYaw * 0.18 + insp * 0.22 * Math.sin(at * 0.004) + slp * 0.2;
+
+    P.legs = [];
+    const A = b * (3.6 + 0.9 * rb) * (1 - air * 0.7), LIFT = b * (2.4 + 2.2 * rb) * (1 - air);
+    for (let i = 0; i < 2; i++) {
+      const side = i ? -1 : 1, a = ph + i * Math.PI;
+      const hu = lean * 0.25, hv = side * 2.7 + sway * 0.6, hz = HIP_Z + bob - crouch;
+      let fu = A * Math.sin(a) + lean * 0.15, fz = Math.max(0, Math.cos(a)) * LIFT + air * 3.5 + ANKLE;
+      const fv = side * (2.9 + cr * 0.9);
+      let du = fu - hu, dz = fz - hz, d = Math.hypot(du, dz);
+      const maxd = L1 + L2 - 0.05;
+      if (d > maxd) { fu = hu + du / d * maxd; fz = hz + dz / d * maxd; du = fu - hu; dz = fz - hz; d = maxd; }
+      const a1 = (L1 * L1 - L2 * L2 + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, L1 * L1 - a1 * a1));
+      const bu = hu + du * a1 / d, bz = hz + dz * a1 / d;
+      const ku = bu + (-dz / d) * hh, kz = bz + (du / d) * hh;
+      P.legs.push({
+        side, hip: L(hu, hv, hz), knee: L(ku, lerp(hv, fv, 0.5) + side * 0.2, kz),
+        foot: L(fu, fv, fz), toe: L(fu + 2.2, fv * 1.05, fz - 0.4),
+      });
+    }
+
+    P.arms = [];
+    const shake = this.bump > 0 ? Math.sin(this.bump * 26) * 0.3 * this.bump : 0;
+    for (let i = 0; i < 2; i++) {
+      const side = i ? -1 : 1, a = ph + i * Math.PI + Math.PI;
+      let al = Math.sin(a) * b * (0.6 + 0.5 * rb) + (1 - b) * (0.08 + breath * 0.03) + air * 1.0 - sd * 0.1;
+      let out = 0.24 + air * 0.6 + (1 - b) * 0.06;
+      let be = al + 0.35 + b * (0.25 + 0.8 * rb) + air * 0.3;
+      let hv = side * 0.4, T = null;
+      switch (ak) {
+        case 'work': { const w = Math.sin(at * 0.016); T = [1.5 + 1.1 * w, 0.14, 1.9 + 1.2 * w, -side * 1.8]; break; }
+        case 'eat': T = i === 0 ? [1.2 + 0.1 * Math.sin(at * 0.022), 0.34, 2.9, -side * 1.4] : null; break;
+        case 'wave': T = i === 0 ? [2.75, 0.55 + 0.3 * Math.sin(at * 0.017), 3.1 + 0.45 * Math.sin(at * 0.017), side * 0.4] : null; break;
+        case 'cheer': T = [2.8 + 0.15 * Math.sin(at * 0.022 + i * 2), 0.55, 3.1, side * 0.5]; break;
+        case 'sleep': case 'sit': T = [0.5, 0.34, 1.35, -side * 0.3]; break;
+        case 'inspect': T = i === 0 ? [1.05, 0.3, 2.75, -side * 1.2] : [-0.3, 0.2, -0.05, side * 0.2]; break;
+        case 'give': T = [1.3, 0.12, 1.6, -side * 1.6]; break;
+      }
+      if (T) { al = lerp(al, T[0], ab); out = lerp(out, T[1], ab); be = lerp(be, T[2], ab); hv = lerp(hv, T[3], ab); }
+      if (hb > 0.01) { al = lerp(al, 0.8, hb); out = lerp(out, 0.1, hb); be = lerp(be, 1.65, hb); hv = lerp(hv, -side * 2, hb); }
+      const su = lean * 0.95, sv = side * 5.1 + sway, sz = SH_Z + bob - crouch - 1.4;
+      const eu = su + Math.sin(al) * LU * Math.cos(out), ev = sv + side * Math.sin(out) * LU, ez = sz - Math.cos(al) * LU * Math.cos(out);
+      P.arms.push({ side, sh: L(su, sv, sz), el: L(eu, ev, ez), hand: L(eu + Math.sin(be) * LF, ev + hv, ez - Math.cos(be) * LF) });
+    }
+    const h0 = P.arms[0].hand, h1 = P.arms[1].hand;
+    P.holdPt = [(h0[0] + h1[0]) / 2 + f0 * 1.2, (h0[1] + h1[1]) / 2 + f1 * 1.2, (h0[2] + h1[2]) / 2 + 1.5];
+
+    const hyaw = this.face + this.headYaw + shake;
+    P.hf = [Math.cos(hyaw), Math.sin(hyaw)]; P.hs = [-P.hf[1], P.hf[0]];
+    this.pose = P;
+  }
+
+  /* ---------- 頭髮（verlet 繩） ---------- */
+  headDir(a, e) {
+    const P = this.pose, ca = Math.cos(a), sa = Math.sin(a), ce = Math.cos(e);
+    return [(P.hf[0] * ca + P.hs[0] * sa) * ce, (P.hf[1] * ca + P.hs[1] * sa) * ce, Math.sin(e)];
+  }
+  headPt(a, e, k) {
+    const h = this.pose.head, n = this.headDir(a, e);
+    return [h[0] + n[0] * RH * k, h[1] + n[1] * RH * k, h[2] + n[2] * RV * k];
+  }
+  buildHair() {
+    const H = [];
+    const add = (a, e, n, seg, w, stiff, out, down, k, tp, top) => H.push({ a, e, n, seg, w, stiff, out, down, k, tp, top: !!top, front: false, overBody: false, p: [], q: [] });
+    if (this.hairStyle === 'shaggy') {
+      for (let i = 0; i < 9; i++) add(Math.PI + (i - 4) * 0.36, 0.12, 3, 2.5, 6.2, 0.22, 0.9, 0.9, 0.82, 0.5);
+      for (const sg of [-1, 1]) add(sg * 1.35, 0.3, 2, 2.4, 5.2, 0.25, 1, 0.9, 0.84, 0.45);
+      for (let i = 0; i < 4; i++) add((i - 1.5) * 0.45, 0.8, 2, 2.2, 5, 0.28, 0.95, 0.35, 0.84, 0.35);
+      for (let i = 0; i < 3; i++) add(Math.PI + (i - 1) * 0.9, 1.25, 2, 2.6, 5.2, 0.45, 0.4, -0.6, 0.8, 0.2);
+    } else if (this.hairStyle === 'topknot') {
+      for (let i = 0; i < 7; i++) add(Math.PI + (i - 3) * 0.45, 0.1, 1, 2.3, 6, 0.3, 1, 0.6, 0.82, 0.5);
+      for (let i = 0; i < 5; i++) add(Math.PI * 0.92 + (i - 2) * 0.3, 1.38, 3, 2.9, 5.6, 0.6, 0.18, -1.0, 0.76, 0.15, true);
+      for (let i = 0; i < 3; i++) add((i - 1) * 0.5, 0.86, 1, 2.2, 4.8, 0.3, 1, -0.2, 0.84, 0.3);
+    } else {
+      for (let i = 0; i < 7; i++) add(Math.PI + (i - 3) * 0.4, 0.08, 2, 2.2, 6, 0.25, 1, 0.8, 0.8, 0.45);
+      for (let i = 0; i < 7; i++) add(Math.PI + (i - 3) * 0.55, 0.95 + 0.15 * (i % 2), 2, 3.4, 5.8, 0.5, 0.55, -1.0, 0.8, 0.1);
+      for (let i = 0; i < 3; i++) add(Math.PI + (i - 1) * 1.2, 1.4, 2, 3.2, 5.4, 0.5, 0.35, -1.0, 0.8, 0.1);
+      for (let i = 0; i < 3; i++) add((i - 1) * 0.45, 0.88, 2, 2.1, 4.6, 0.3, 1, -0.3, 0.82, 0.2);
+    }
+    this.hair = H;
+  }
+  restDir(S) {
+    const n = this.headDir(S.a, S.e);
+    const r = [n[0] * S.out, n[1] * S.out, n[2] * S.out - S.down];
+    const m = Math.hypot(r[0], r[1], r[2]) || 1;
+    return [r[0] / m, r[1] / m, r[2] / m];
+  }
+  updateLayers(init) {
+    const P = this.pose, fc = (P.f[0] + P.f[1]) * RS2;
+    if (init) this.awayBody = fc < 0;
+    else if (this.awayBody && fc > LAYER_HYST) this.awayBody = false;
+    else if (!this.awayBody && fc < -LAYER_HYST) this.awayBody = true;
+    for (const S of this.hair) {
+      if (S.top) { S.front = true; S.overBody = true; continue; }
+      const n = this.headDir(S.a, S.e), c = (n[0] + n[1]) * RS2;
+      if (init) S.front = c >= 0; else if (S.front && c < -LAYER_HYST) S.front = false; else if (!S.front && c > LAYER_HYST) S.front = true;
+      S.overBody = Math.cos(S.a) < 0 ? this.awayBody : !this.awayBody;
+    }
+  }
+  resetHair() {
+    for (const S of this.hair) {
+      const A = this.headPt(S.a, S.e, S.k), rd = this.restDir(S);
+      S.p = []; S.q = [];
+      for (let i = 0; i <= S.n; i++) { const p = [A[0] + rd[0] * S.seg * i, A[1] + rd[1] * S.seg * i, A[2] + rd[2] * S.seg * i]; S.p.push(p); S.q.push(p.slice()); }
+    }
+  }
+  simHair(h) {
+    const P = this.pose, r = h / 16, r2 = r * r, vs = h / this.hPrev; this.hPrev = h;
+    const damp = Math.pow(0.85, r), g = 0.24 * r2;
+    const wx = Math.sin(this.t * 0.0009) * 0.03 * r2, wy = Math.cos(this.t * 0.0013) * 0.03 * r2;
+    const hc = P.head, sc = P.sh, hipz = P.hip[2], floor = this.gz + 0.5;
+    for (const S of this.hair) {
+      const A = this.headPt(S.a, S.e, S.k), rd = this.restDir(S);
+      const k = 1 - Math.pow(1 - S.stiff, r);
+      S.p[0] = A;
+      for (let i = 1; i <= S.n; i++) {
+        const p = S.p[i], q = S.q[i];
+        const vx = (p[0] - q[0]) * vs * damp, vy = (p[1] - q[1]) * vs * damp, vz = (p[2] - q[2]) * vs * damp;
+        q[0] = p[0]; q[1] = p[1]; q[2] = p[2];
+        p[0] += vx + wx; p[1] += vy + wy; p[2] += vz - (S.top ? g * 0.3 : g);
+        const kk = k * (1 - 0.5 * i / S.n);
+        p[0] += (A[0] + rd[0] * S.seg * i - p[0]) * kk;
+        p[1] += (A[1] + rd[1] * S.seg * i - p[1]) * kk;
+        p[2] += (A[2] + rd[2] * S.seg * i - p[2]) * kk;
+      }
+      for (let it = 0; it < 3; it++) {
+        for (let i = 1; i <= S.n; i++) {
+          const a = S.p[i - 1], p = S.p[i];
+          const dx = p[0] - a[0], dy = p[1] - a[1], dz = p[2] - a[2];
+          const d = Math.hypot(dx, dy, dz) || 1e-6, df = (d - S.seg) / d;
+          if (i === 1) { p[0] -= dx * df; p[1] -= dy * df; p[2] -= dz * df; }
+          else { const h2 = df * 0.5; a[0] += dx * h2; a[1] += dy * h2; a[2] += dz * h2; p[0] -= dx * h2; p[1] -= dy * h2; p[2] -= dz * h2; }
+        }
+        for (let i = 1; i <= S.n; i++) {
+          const p = S.p[i];
+          let dx = p[0] - hc[0], dy = p[1] - hc[1], dz = p[2] - hc[2];
+          const kq = Math.sqrt((dx * dx + dy * dy) / (RH * RH) + dz * dz / (RV * RV));
+          if (kq < 1.04 && kq > 1e-4) { const m = 1.04 / kq; p[0] = hc[0] + dx * m; p[1] = hc[1] + dy * m; p[2] = hc[2] + dz * m; }
+          if (p[2] < sc[2] + 1.5 && p[2] > hipz - 2) {
+            dx = p[0] - sc[0]; dy = p[1] - sc[1]; const dd = Math.hypot(dx, dy), rr = 5.6;
+            if (dd < rr && dd > 1e-4) { p[0] = sc[0] + dx / dd * rr; p[1] = sc[1] + dy / dd * rr; }
+          }
+          if (p[2] < floor) p[2] = floor;
+        }
+      }
+    }
+  }
+
+  /* ---------- 特效 ---------- */
+  footFx(i) {
+    const leg = this.pose.legs[i], t = this.underTile();
+    if (t.water && this.z < WATER_Z) {
+      fx.push({ k: 'ring', x: leg.foot[0], y: leg.foot[1], z: WATER_Z, t: 0, life: 700, r0: 2, grow: 7 });
+      for (let n = 0; n < 3; n++) fx.push({ k: 'drop', x: leg.foot[0], y: leg.foot[1], z: WATER_Z + 0.5, vx: (Math.random() - .5) * 0.03, vy: (Math.random() - .5) * 0.03, vz: 0.04 + Math.random() * 0.03, t: 0, life: 600 });
+    } else {
+      const n = this.runB > 0.5 ? 3 : 1;
+      for (let k = 0; k < n; k++) fx.push({ k: 'dust', x: leg.foot[0], y: leg.foot[1], z: this.gz + 1, vx: (Math.random() - .5) * 0.02, vy: (Math.random() - .5) * 0.02, vz: 0.008 + Math.random() * 0.01, t: 0, life: 380 + Math.random() * 220, r: 1.1 + Math.random() * 1.1, c: dustColor(t) });
+    }
+  }
+  landFx() {
+    const t = tile(this.tx, this.ty);
+    if (t.water) { fx.push({ k: 'ring', x: this.x, y: this.y, z: WATER_Z, t: 0, life: 900, r0: 4, grow: 12 }); return; }
+    for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; fx.push({ k: 'dust', x: this.x, y: this.y, z: this.gz + 1, vx: Math.cos(a) * 0.03, vy: Math.sin(a) * 0.03, vz: 0.006, t: 0, life: 450, r: 1.5, c: dustColor(t) }); }
+  }
+
+  /* ---------- 繪製 ---------- */
+  drawLeg(ctx, g, back) {
+    const C = this.col, h = iso(...g.hip), k = iso(...g.knee), f = iso(...g.foot), t = iso(...g.toe), c = back ? C.skinB : C.skin, O = 1.4;
+    cap(ctx, h, k, 5 + O, C.line); cap(ctx, k, f, 4.7 + O, C.line); cap(ctx, f, t, 4.7 + O, C.line);
+    cap(ctx, h, k, 5, c); cap(ctx, k, f, 4.7, c); cap(ctx, f, t, 4.7, c);
+  }
+  drawArm(ctx, a, back) {
+    const C = this.col, s = iso(...a.sh), e = iso(...a.el), h = iso(...a.hand), c = back ? C.skinB : C.skin, O = 1.4;
+    cap(ctx, s, e, 4.1 + O, C.line); cap(ctx, e, h, 3.8 + O, C.line); disc(ctx, h, 2.9 + 0.7, C.line);
+    cap(ctx, s, e, 4.1, c); cap(ctx, e, h, 3.8, c); disc(ctx, h, 2.9, c);
+  }
+  drawTorso(ctx) {
+    const C = this.col, P = this.pose, [sx, sy] = iso(...P.sh), [hx, hy] = iso(...P.hip), wS = 6.6, wH = 7.2;
+    const sg = (P.s[0] - P.s[1]) >= 0 ? 1 : -1;
+    ctx.lineWidth = 1.0; ctx.strokeStyle = C.line;
+    ctx.fillStyle = C.skin; ctx.beginPath();
+    ctx.moveTo(sx - wS, sy + 2); ctx.quadraticCurveTo(sx - wS, sy - 3.2, sx, sy - 3.4); ctx.quadraticCurveTo(sx + wS, sy - 3.2, sx + wS, sy + 2);
+    ctx.quadraticCurveTo(hx + wH + 0.6, hy - 1, hx + wH, hy + 2); ctx.lineTo(hx - wH, hy + 2); ctx.quadraticCurveTo(hx - wH - 0.6, hy - 1, sx - wS, sy + 2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    const path = new Path2D();
+    path.moveTo(sx + sg * 1.0, sy - 3.3);
+    path.quadraticCurveTo(sx + sg * wS, sy - 3.0, sx + sg * wS, sy + 2);
+    path.quadraticCurveTo(hx + sg * (wH + 0.9), hy - 1, hx + sg * wH, hy + 2.5);
+    const N = 5;
+    for (let i = 0; i < N; i++) {
+      const k0 = i / N, k1 = (i + 1) / N;
+      const x0 = lerp(hx + sg * wH, hx - sg * wH, k0), x1 = lerp(hx + sg * wH, hx - sg * wH, k1);
+      const y0 = hy + 2.5 + Math.sin(k0 * Math.PI) * 1.3, y1 = hy + 2.5 + Math.sin(k1 * Math.PI) * 1.3;
+      path.quadraticCurveTo((x0 + x1) / 2, (y0 + y1) / 2 + 4, x1, y1);
+    }
+    path.quadraticCurveTo(hx - sg * (wH + 0.9), hy - 1, sx - sg * wS, sy + 3.8);
+    path.quadraticCurveTo(sx - sg * 1.5, sy + 2.6, sx + sg * 1.0, sy - 3.3);
+    ctx.fillStyle = C.tunic; ctx.fill(path);
+    ctx.save(); ctx.clip(path);
+    ctx.fillStyle = 'rgba(40,20,10,.12)'; ctx.beginPath(); ctx.ellipse(hx + 6, hy - 2, 5, 12, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.spot;
+    const spots = [[0.3, 16, 1.5], [1.3, 18.5, 1.2], [2.4, 14, 1.4], [-0.9, 18, 1.3], [-2.0, 14.5, 1.5], [3.0, 17.5, 1.2], [-0.2, 11, 1.2], [1.9, 10.5, 1.1], [-1.5, 10.5, 1.1]];
+    for (const [a, z, r] of spots) {
+      const ang = this.face + a, nx = Math.cos(ang), ny = Math.sin(ang), vis = (nx + ny) * RS2;
+      if (vis < 0.12) continue;
+      const t = (z - HIP_Z) / (SH_Z - HIP_Z);
+      const [px, py] = iso(lerp(P.hip[0], P.sh[0], t) + nx * 4.8, lerp(P.hip[1], P.sh[1], t) + ny * 4.8, lerp(P.hip[2], P.sh[2], t));
+      ctx.beginPath(); ctx.ellipse(px, py, r * (0.4 + 0.6 * vis), r, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    ctx.stroke(path);
+    this.drawNecklace(ctx);
+  }
+  drawNecklace(ctx) {
+    const C = this.col, P = this.pose, t = (SH_Z - 2.4 - HIP_Z) / (SH_Z - HIP_Z);
+    const cx = lerp(P.hip[0], P.sh[0], t), cy = lerp(P.hip[1], P.sh[1], t), cz = lerp(P.hip[2], P.sh[2], t), R = 5.2;
+    const pt = a => [cx + Math.cos(a) * R, cy + Math.sin(a) * R, cz - Math.max(0, Math.cos(a - this.face)) * 1.2];
+    const vis = a => (Math.cos(a) + Math.sin(a)) * RS2;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 0.8; ctx.beginPath(); let on = false;
+    for (let i = 0; i <= 32; i++) { const a = i / 32 * TAU; if (vis(a) > 0.05) { const [x, y] = iso(...pt(a)); on ? ctx.lineTo(x, y) : ctx.moveTo(x, y); on = true; } else on = false; }
+    ctx.stroke();
+    for (const o of [-0.6, 0, 0.6]) {
+      const a = this.face + o, v = vis(a); if (v < 0.15) continue;
+      const [x, y] = iso(...pt(a)), w = 1.1 * (0.4 + 0.6 * v);
+      ctx.fillStyle = C.tooth; ctx.strokeStyle = C.line; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x + w, y); ctx.lineTo(x, y + (o === 0 ? 3.2 : 2.5)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+  }
+  bandPath(ctx) {
+    ctx.beginPath(); let on = false;
+    for (let i = 0; i <= 30; i++) {
+      const a = -Math.PI + i / 30 * TAU, n = this.headDir(a, 0.42), v = (n[0] + n[1]) * RS2;
+      if (v > -0.08) { const [x, y] = iso(...this.headPt(a, 0.42, 1.03)); on ? ctx.lineTo(x, y) : ctx.moveTo(x, y); on = true; } else on = false;
+    }
+  }
+  drawHead(ctx) {
+    const C = this.col, P = this.pose, [hx, hy] = iso(...P.head), R = HEAD_R, hf = P.hf, hs = P.hs;
+    const cam = (hf[0] + hf[1]) * RS2, lat = (hf[0] - hf[1]) * RS2;
+    const sleeping = this.animK === 'sleep' && this.animB > 0.3;
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(P.roll); ctx.translate(-hx, -hy);
+    ctx.fillStyle = C.hair; ctx.strokeStyle = C.line; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.arc(hx, hy, R, 0, TAU); ctx.fill(); ctx.stroke();
+    const t = clamp((cam + 0.8) / 1.5, 0, 1);
+    ctx.save(); ctx.beginPath(); ctx.arc(hx, hy, R - 0.6, 0, TAU); ctx.clip();
+    const fcx = hx + lat * R * (0.9 - 0.47 * t), fcy = hy + R * (0.16 + 0.08 * t), fr = R * (0.38 + 0.48 * t);
+    ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(fcx, fcy, fr, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.hair; ctx.beginPath(); ctx.ellipse(hx - lat * R * 0.25, hy - R * 0.8, R * 1.2, R * 0.56, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = C.hairHi; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(hx - lat * R * 0.15, hy - R * 0.1, R * 0.72, Math.PI * 1.17, Math.PI * 1.5); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    if (cam > -0.2) {
+      const open = this.blink > 0 ? Math.abs(1 - 2 * this.blink) : 1;
+      const squeeze = this.bump > 0.25;
+      const eyes = [];
+      for (const sgn of [-1, 1]) {
+        const dx = hf[0] * 0.82 + hs[0] * 0.42 * sgn, dy = hf[1] * 0.82 + hs[1] * 0.42 * sgn, vis = (dx + dy) * RS2;
+        if (vis < 0.1) continue;
+        const [ex, ey] = iso(P.head[0] + dx * RH, P.head[1] + dy * RH, P.head[2] - 2.2);
+        eyes.push({ ex, ey, w: Math.min(1, vis * 1.3), dx, dy });
+      }
+      const [nx, ny] = iso(P.head[0] + hf[0] * RH, P.head[1] + hf[1] * RH, P.head[2] - 4.6);
+      for (const e of eyes) {
+        const [bx, by] = iso(P.head[0] + (e.dx * 0.95 + (e.dx - hf[0] * 0.82) * 0.35) * RH, P.head[1] + (e.dy * 0.95 + (e.dy - hf[1] * 0.82) * 0.35) * RH, P.head[2] - 5.0);
+        ctx.fillStyle = C.blush; ctx.beginPath(); ctx.ellipse(bx, by, 2.2 * (0.4 + 0.6 * e.w), 1.2, 0, 0, TAU); ctx.fill();
+      }
+      for (const e of eyes) {
+        const d = e.ex < nx ? 1 : -1;
+        if (sleeping) {
+          ctx.strokeStyle = C.eye; ctx.lineWidth = 0.95; ctx.beginPath(); ctx.arc(e.ex, e.ey - 0.6, 1.4 * (0.5 + 0.5 * e.w), 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        } else if (squeeze) {
+          ctx.strokeStyle = C.eye; ctx.lineWidth = 1.1; ctx.beginPath();
+          ctx.moveTo(e.ex - d * 1.4, e.ey - 1.4); ctx.lineTo(e.ex + d * 1.2, e.ey); ctx.lineTo(e.ex - d * 1.4, e.ey + 1.4); ctx.stroke();
+        } else {
+          const rx = 1.5 * (0.45 + 0.55 * e.w), ry = 2.2 * open + 0.15;
+          ctx.fillStyle = C.eye; ctx.beginPath(); ctx.ellipse(e.ex, e.ey, rx, ry, 0, 0, TAU); ctx.fill();
+          if (open > 0.5) { disc(ctx, [e.ex - rx * 0.35, e.ey - 0.9], 0.7 * (0.5 + 0.5 * e.w), '#fff'); disc(ctx, [e.ex + rx * 0.3, e.ey + 0.8], 0.32, '#fff'); }
+        }
+        const sadLift = this.sadB * 0.8;
+        ctx.strokeStyle = C.hair; ctx.lineWidth = BROW_W; ctx.beginPath();
+        ctx.moveTo(e.ex - d * 1.9 * e.w, e.ey - 4.1 - (squeeze ? 0.4 : 0) + sadLift); ctx.lineTo(e.ex + d * 1.7 * e.w, e.ey - 3.4 - sadLift); ctx.stroke();
+      }
+      if (cam > 0.05) {
+        const w = clamp(cam * 1.4, 0.3, 1), ak = this.animK, ab = this.animB;
+        ctx.fillStyle = C.mouth; ctx.strokeStyle = C.mouth; ctx.lineWidth = 0.95;
+        if (ak === 'eat' && ab > 0.5) { const o = Math.abs(Math.sin(this.animT * 0.02)); ctx.beginPath(); ctx.ellipse(nx, ny + 0.2, 1.0 * w, 0.3 + 0.9 * o, 0, 0, TAU); ctx.fill(); }
+        else if (sleeping) { ctx.beginPath(); ctx.ellipse(nx, ny + 0.2, 0.55 * w, 0.5, 0, 0, TAU); ctx.fill(); }
+        else if (this.runB > 0.5 || P.air > 0.3 || squeeze || ((ak === 'cheer' || ak === 'wave') && ab > 0.5)) { ctx.beginPath(); ctx.ellipse(nx, ny + 0.2, 1.0 * w, 1.15, 0, 0, TAU); ctx.fill(); }
+        else if (this.sadB > 0.5) { ctx.beginPath(); ctx.arc(nx, ny + 1.0, 1.3 * w + 0.2, Math.PI * 1.2, Math.PI * 1.8); ctx.stroke(); }
+        else { ctx.beginPath(); ctx.arc(nx, ny - 1.0, 1.4 * w + 0.2, Math.PI * 0.18, Math.PI * 0.82); ctx.stroke(); }
+        const [ox, oy] = iso(P.head[0] + hf[0] * RH * 1.03, P.head[1] + hf[1] * RH * 1.03, P.head[2] - 3.4);
+        ctx.fillStyle = C.skinB; ctx.beginPath(); ctx.ellipse(ox, oy, 0.9, 0.6, 0, 0, TAU); ctx.fill();
+      }
+    }
+    if (this.band) {
+      ctx.strokeStyle = C.line; ctx.lineWidth = 3.4; this.bandPath(ctx); ctx.stroke();
+      ctx.strokeStyle = this.band; ctx.lineWidth = 2.2; this.bandPath(ctx); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  drawHairBatch(ctx, list) {
+    const C = this.col, all = list.map(S => ({ S, pts: S.p.map(p => iso(p[0], p[1], p[2])) }));
+    for (let pass = 0; pass < 2; pass++)
+      for (const { S, pts } of all) {
+        const n = pts.length - 1;
+        for (let i = 0; i < n; i++) { const w = S.w * (1 - (1 - S.tp) * i / n); cap(ctx, pts[i], pts[i + 1], pass ? w : w + 1.4, pass ? C.hair : C.line); }
+      }
+  }
+  renderBody(ctx) {
+    const P = this.pose, torsoD = (dep(P.sh) + dep(P.hip)) / 2;
+    const arms = P.arms.map(a => ({ a, d: dep(a.sh) + (dep(a.hand) - dep(a.sh)) * 0.2 })).sort((x, y) => x.d - y.d);
+    const underBody = this.hair.filter(S => !S.front && !S.overBody);
+    const overBody = this.hair.filter(S => !S.front && S.overBody);
+    const overHead = this.hair.filter(S => S.front);
+    const animItem = this.anim && this.anim.item;
+    const item = animItem || (this.holdB > 0.35 ? this.hold : null);
+    const ipt = animItem ? P.arms[0].hand : P.holdPt;
+    const iFront = item ? dep(ipt) >= torsoD : false, isz = item === 'egg' ? 1.0 : 0.85;
+    if (underBody.length) this.drawHairBatch(ctx, underBody);
+    for (const x of arms) if (x.d < torsoD) this.drawArm(ctx, x.a, true);
+    if (item && !iFront) { const [ix, iy] = iso(...ipt); drawItemIcon(ctx, item, ix, iy, isz); }
+    const legs = P.legs.map(g => ({ g, d: dep(g.hip) })).sort((a, b) => a.d - b.d);
+    legs.forEach((l, i) => this.drawLeg(ctx, l.g, i === 0));
+    this.drawTorso(ctx);
+    if (overBody.length) this.drawHairBatch(ctx, overBody);
+    this.drawHead(ctx);
+    if (overHead.length) this.drawHairBatch(ctx, overHead);
+    for (const x of arms) if (x.d >= torsoD) this.drawArm(ctx, x.a, false);
+    if (item && iFront) { const [ix, iy] = iso(...ipt); drawItemIcon(ctx, item, ix, iy, isz); }
+  }
+  draw(ctx) {
+    const ut = this.underTile();
+    if (!ut.water) {
+      const sz = ELEV[ut.lv], k = clamp(1 - (this.z - sz) / 30, 0.4, 1), [sx, sy] = iso(this.x, this.y, sz);
+      ctx.fillStyle = `rgba(0,0,0,${0.2 * k})`; ctx.beginPath(); ctx.ellipse(sx, sy, 9 * k, 4.5 * k, 0, 0, TAU); ctx.fill();
+    }
+    if (this.z < WATER_Z - 0.3) {
+      const [wx, wy] = iso(this.x, this.y, WATER_Z);
+      ctx.strokeStyle = 'rgba(230,245,255,.55)'; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.ellipse(wx, wy, 10, 4.2, 0, Math.PI, TAU); ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.rect(-1e5, -1e5, 2e5, 1e5 + wy); ctx.clip(); this.renderBody(ctx); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.rect(-1e5, wy, 2e5, 1e5); ctx.clip(); ctx.globalAlpha = 0.28; this.renderBody(ctx); ctx.restore();
+      ctx.globalAlpha = 1; ctx.strokeStyle = 'rgba(230,245,255,.7)';
+      ctx.beginPath(); ctx.ellipse(wx, wy, 10, 4.2, 0, 0, Math.PI); ctx.stroke();
+    } else this.renderBody(ctx);
+  }
+}
+
+/* ---------------- 物件繪製 ---------------- */
+function shadowAt(c, x, y, rx, ry, a = 0.17) { c.fillStyle = `rgba(0,0,0,${a})`; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); }
+function canopy(c, hx, hy, blobs, cols) {
+  c.fillStyle = cols[0]; for (const [dx, dy, r] of blobs) { c.beginPath(); c.arc(hx + dx, hy + dy, r + 1.2, 0, TAU); c.fill(); }
+  c.fillStyle = cols[1]; for (const [dx, dy, r] of blobs) { c.beginPath(); c.arc(hx + dx, hy + dy, r, 0, TAU); c.fill(); }
+  c.fillStyle = cols[2]; for (const [dx, dy, r] of blobs) { c.beginPath(); c.arc(hx + dx - 1.4, hy + dy - 1.8, r * 0.7, 0, TAU); c.fill(); }
+  c.fillStyle = 'rgba(190,230,140,.45)'; c.beginPath(); c.arc(hx - 4, hy - 9, 3.4, 0, TAU); c.fill();
+}
+function drawFruitTree(c, bx, by, t, id, fruit, sc, shake) {
+  const sw = Math.sin(t * 0.0012 + id * 1.3) * 0.7 + (shake > 0 ? Math.sin(t * 0.045) * 3 * shake : 0);
+  c.save(); c.translate(bx, by); c.scale(sc, sc);
+  shadowAt(c, 0, 0, 12, 6);
+  cap(c, [0, 0], [sw * 0.3, -18], 7, '#4a2c18'); cap(c, [0, 0], [sw * 0.3, -18], 4.8, '#80593a');
+  const hx = sw, hy = -29;
+  canopy(c, hx, hy, [[-7, 2, 9], [7, 2, 9], [0, -5, 10.5], [0, 4, 9]], ['#2c4d22', '#4b8a39', '#6aac4e']);
+  const fp = [[-5, 1], [5, -2], [0, 6], [-2, -7]];
+  for (let i = 0; i < Math.min(fruit, fp.length); i++) { const [dx, dy] = fp[i]; blob(c, hx + dx, hy + dy, 2.7, 2.7, '#e8742f', '#5a2c14', 0.8); blob(c, hx + dx - 0.8, hy + dy - 0.9, 0.8, 0.7, '#ffd0a6'); }
+  c.restore();
+}
+function drawObj(c, o, t) {
+  const cx = (o.x + .5) * U, cy = (o.y + .5) * U, z = topZ(o.x, o.y), [bx, by] = iso(cx, cy, z);
+  switch (o.type) {
+    case 'tree': {
+      const sw = Math.sin(t * 0.0011 + o.id * 1.7) * 0.9 + (o.shake > 0 ? Math.sin(t * 0.045) * 3 * o.shake : 0);
+      shadowAt(c, bx, by, 13, 6.5);
+      cap(c, [bx, by], [bx + sw * 0.3, by - 24], 7.4, '#4a2c18'); cap(c, [bx, by], [bx + sw * 0.3, by - 24], 5.2, '#7a5230');
+      for (let i = 0; i < o.sticks; i++) { const sy = by - 9 - i * 5, sd = i % 2 ? -1 : 1; cap(c, [bx + sw * 0.1, sy], [bx + sd * 5 + sw * 0.2, sy - 3], 2.4, '#4a2c18'); cap(c, [bx + sw * 0.1, sy], [bx + sd * 5 + sw * 0.2, sy - 3], 1.3, '#7a5230'); }
+      canopy(c, bx + sw, by - 37, [[-8, 4, 10], [8, 4, 10], [0, -6, 12], [0, 5, 10.5], [-5, -2, 9], [6, -3, 9]], ['#26421f', '#3f6b35', '#58913f']);
+      break;
+    }
+    case 'fruitTree': drawFruitTree(c, bx, by, t, o.id, o.fruit, 1, o.shake); break;
+    case 'sprout': {
+      const g = o.grow;
+      if (g < 0.35) {
+        shadowAt(c, bx, by, 4, 2);
+        cap(c, [bx, by], [bx, by - 4 - g * 8], 1.4, '#4f8a3f');
+        blob(c, bx - 2.2, by - 4 - g * 8, 2.4, 1.2, '#6aac4e', '#2c4d22', 0.6); blob(c, bx + 2.2, by - 4.5 - g * 8, 2.4, 1.2, '#6aac4e', '#2c4d22', 0.6);
+      } else drawFruitTree(c, bx, by, t, o.id, 0, 0.35 + 0.5 * g, 0);
+      break;
+    }
+    case 'bush': {
+      shadowAt(c, bx, by, 12, 6);
+      const hy = by - 7, sh = o.shake > 0 ? Math.sin(t * 0.05) * 1.5 * o.shake : 0;
+      canopy(c, bx + sh, hy, [[-6, 1, 6.5], [6, 1, 6.5], [0, -3, 7.5], [0, 3, 6.5]], ['#23421f', '#3f7440', '#5b9a52']);
+      const bp = [[-5, -2], [4, -4], [6, 2], [-2, 3]];
+      for (let i = 0; i < Math.min(o.berries, 4); i++) { const [dx, dy] = bp[i]; blob(c, bx + sh + dx, hy + dy, 2.1, 2.1, '#8a3fb0', '#3a1648', 0.7); blob(c, bx + sh + dx - 0.6, hy + dy - 0.7, 0.55, 0.5, '#f0d4ff'); }
+      break;
+    }
+    case 'boulder': {
+      shadowAt(c, bx, by + 1, 13, 6.5);
+      const ox = o.shake > 0 ? Math.sin(t * 0.08) * o.shake : 0;
+      c.beginPath();
+      for (let i = 0; i <= 10; i++) { const a = i / 10 * TAU, r = 1 + 0.08 * Math.sin(i * 2.3 + o.id); const px = bx + ox + Math.cos(a) * 11.5 * r, py = by - 6 + Math.sin(a) * 8 * r - (Math.sin(a) < 0 ? 3 : 0); i ? c.lineTo(px, py) : c.moveTo(px, py); }
+      c.closePath(); c.fillStyle = '#8e8a84'; c.fill(); c.strokeStyle = '#4d4a46'; c.lineWidth = 1; c.stroke();
+      blob(c, bx + ox - 2.5, by - 11, 6, 3, '#aaa69e'); blob(c, bx + ox + 4, by - 4, 3, 1.6, '#7a766f');
+      for (let i = 0; i < o.stones; i++) blob(c, bx - 11 + i * 4, by + 3 + (i % 2), 2, 1.3, '#a19c93', '#4d4a46', 0.6);
+      break;
+    }
+    case 'grass': {
+      const h = o.n > 0 ? 9 : 3;
+      for (let i = 0; i < 7; i++) {
+        const ox = ((i * 37 + o.id * 13) % 17) - 8, oy = ((i * 23 + o.id * 7) % 7) - 3, sw = Math.sin(t * 0.002 + i + o.id) * 1.3;
+        cap(c, [bx + ox, by + oy], [bx + ox + sw - 1.5, by + oy - h * (0.8 + 0.1 * (i % 3))], 1.5, '#6b9440');
+        cap(c, [bx + ox, by + oy], [bx + ox + sw + 1.2, by + oy - h * 0.75], 1.3, '#a4c866');
+      }
+      break;
+    }
+    case 'fire': {
+      for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, p = iso(cx + Math.cos(a) * 9, cy + Math.sin(a) * 9, z + 1); blob(c, p[0], p[1], 2.8, 2, '#8a857c', '#4d4a46', 0.7); }
+      cap(c, iso(cx - 6, cy - 3, z + 2), iso(cx + 6, cy + 3, z + 3), 3.6, '#3b2414'); cap(c, iso(cx - 6, cy - 3, z + 2), iso(cx + 6, cy + 3, z + 3), 2.4, '#6b4424');
+      cap(c, iso(cx - 5, cy + 5, z + 3), iso(cx + 5, cy - 5, z + 2), 3.6, '#3b2414'); cap(c, iso(cx - 5, cy + 5, z + 3), iso(cx + 5, cy - 5, z + 2), 2.4, '#6b4424');
+      if (o.fuel > 0) {
+        const f = 0.6 + 0.4 * Math.min(1, o.fuel / 40), fl = Math.sin(t * 0.02 + o.id) * 0.12 + Math.sin(t * 0.037) * 0.08, h = 14 * f * (1 + fl), sx = Math.sin(t * 0.013) * 2;
+        const g = c.createRadialGradient(bx, by - 5, 0, bx, by - 5, 24); g.addColorStop(0, 'rgba(255,190,90,.38)'); g.addColorStop(1, 'rgba(255,150,60,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(bx, by - 5, 24, 0, TAU); c.fill();
+        c.beginPath(); c.moveTo(bx - 6 * f, by - 1); c.quadraticCurveTo(bx - 7.5 * f, by - h * 0.6, bx + sx, by - h); c.quadraticCurveTo(bx + 7.5 * f, by - h * 0.55, bx + 6 * f, by - 1); c.closePath(); c.fillStyle = '#f08a24'; c.fill();
+        c.beginPath(); c.moveTo(bx - 3.2 * f, by - 1); c.quadraticCurveTo(bx - 3.6 * f, by - h * 0.45, bx + sx * 0.6, by - h * 0.72); c.quadraticCurveTo(bx + 3.8 * f, by - h * 0.4, bx + 3.2 * f, by - 1); c.closePath(); c.fillStyle = '#ffd65a'; c.fill();
+      } else { for (let i = 0; i < 3; i++) blob(c, bx - 3 + i * 3, by - 1.5, 1, 0.7, `rgba(255,${80 + 40 * Math.sin(t * 0.01 + i)},40,.8)`); }
+      break;
+    }
+    case 'hut': drawHut(c, o, cx, cy, z); break;
+    case 'basket': {
+      shadowAt(c, bx, by + 0.5, 10, 5);
+      c.beginPath(); c.moveTo(bx - 8.5, by - 10); c.lineTo(bx - 7, by - 1); c.ellipse(bx, by - 1, 7, 3.5, 0, Math.PI, 0, true); c.lineTo(bx + 8.5, by - 10); c.closePath();
+      c.fillStyle = '#b0854a'; c.fill(); c.strokeStyle = '#4e3218'; c.lineWidth = 1; c.stroke();
+      c.strokeStyle = '#8a6434'; c.lineWidth = 0.8;
+      for (const k of [0.3, 0.6]) { c.beginPath(); c.ellipse(bx, lerp(by - 10, by - 1, k), lerp(8.5, 7, k), 3.8, 0, 0, Math.PI); c.stroke(); }
+      blob(c, bx, by - 10, 8.5, 4.2, '#6e4f2a', '#4e3218', 1);
+      const tot = o.items.reduce((a, s) => a + s.n, 0);
+      if (tot > 0) { const ks = o.items.slice(0, 3); ks.forEach((s, i) => drawItemIcon(c, s.k, bx - 4 + i * 4, by - 11 - (i % 2), 0.55)); }
+      break;
+    }
+    case 'cairn': {
+      shadowAt(c, bx, by, 8, 4);
+      for (const [dx, dy, rx, ry, col] of [[0, -2, 7, 4, '#8e8a84'], [1, -8, 5.5, 3.5, '#a19c93'], [-0.5, -13, 4.2, 3, '#8e8a84'], [0.5, -17.5, 2.8, 2.2, '#b3aea5']])
+        blob(c, bx + dx, by + dy, rx, ry, col, '#4d4a46', 0.9);
+      break;
+    }
+    case 'pile': {
+      if (o.k === 'egg') {
+        const bob = Math.sin(t * 0.004) * 0.6, wob = o.warm > 0 ? Math.sin(t * 0.03) * 0.08 * Math.min(1, o.warm / 20000) : 0;
+        shadowAt(c, bx, by, 6, 3); c.save(); c.translate(bx, by - 6 + bob); c.rotate(wob); drawItemIcon(c, 'egg', 0, 0, 1.5); c.restore();
+        break;
+      }
+      const offs = [[0, -3], [-5, -1], [5, -1]];
+      for (let i = 0; i < Math.min(o.n, 3); i++) drawItemIcon(c, o.k, bx + offs[i][0], by + offs[i][1], 1.05);
+      break;
+    }
+  }
+}
+function drawHut(c, o, cx, cy, z) {
+  const hx = 13, hy = 14, e = z + 1, R = z + 27, OL = '#5a3a1e';
+  const p = (x, y, zz) => iso(cx + x, cy + y, zz);
+  const [bx, by] = iso(cx, cy, z); shadowAt(c, bx, by + 1, 22, 11);
+  const face = (pts, fill) => { poly(c, pts, fill); c.strokeStyle = OL; c.lineWidth = 1; c.stroke(); };
+  face([p(-hx, -hy, e), p(hx, -hy, e), p(hx, 0, R), p(-hx, 0, R)], '#b89045');
+  face([p(-hx, -hy, e), p(-hx, hy, e), p(-hx, 0, R)], '#9c7738');
+  face([p(hx, -hy, e), p(hx, hy, e), p(hx, 0, R)], '#a97f45');
+  const d0 = p(hx, -4.5, e), d1 = p(hx, 4.5, e), dt = p(hx, 0, e + 13);
+  c.fillStyle = '#3a2412'; c.beginPath(); c.moveTo(d0[0], d0[1]); c.quadraticCurveTo(d0[0], dt[1] - 2, dt[0], dt[1]); c.quadraticCurveTo(d1[0], dt[1] - 2, d1[0], d1[1]); c.closePath(); c.fill();
+  face([p(-hx, hy, e), p(hx, hy, e), p(hx, 0, R), p(-hx, 0, R)], '#d8b466');
+  c.strokeStyle = '#a17b3c'; c.lineWidth = 0.8;
+  for (const k of [0.25, 0.5, 0.75]) { const a = p(-hx, hy * (1 - k), lerp(e, R, k)), b = p(hx, hy * (1 - k), lerp(e, R, k)); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+  cap(c, p(-hx - 2, 0, R + 1), p(hx + 2, 0, R + 1), 3.2, '#8a6634');
+}
+
+/* ---------------- 魚 ---------------- */
+const FISH = []; let WATER_TILES = [], fishT = 0;
+function initFishTiles() {
+  WATER_TILES = [];
+  for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+    if (!map[y][x].water) continue;
+    let near = false;
+    for (let j = -2; j <= 2 && !near; j++) for (let i = -2; i <= 2; i++) { const nx = x + i, ny = y + j; if (inB(nx, ny) && !map[ny][nx].water) { near = true; break; } }
+    if (near) WATER_TILES.push([x, y]);
+  }
+}
+function spawnFish() {
+  if (!WATER_TILES.length) return;
+  const [x, y] = pickR(WATER_TILES);
+  const f = { x: (x + rnd(.3, .7)) * U, y: (y + rnd(.3, .7)) * U, gx: 0, gy: 0, a: rnd(0, TAU), t: rnd(0, 1e4), jump: 0, wait: 0, flee: 0 };
+  fishGoal(f); FISH.push(f);
+}
+function fishGoal(f, awayX, awayY) {
+  const tx = Math.floor(f.x / U), ty = Math.floor(f.y / U), c = [];
+  for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = tx + i, y = ty + j; if (inB(x, y) && map[y][x].water) c.push([x, y]); }
+  if (!c.length) return;
+  let pick = pickR(c);
+  if (awayX != null) { let bd = -1; for (const p of c) { const d = Math.hypot((p[0] + .5) * U - awayX, (p[1] + .5) * U - awayY) + Math.random() * 10; if (d > bd) { bd = d; pick = p; } } }
+  f.gx = (pick[0] + rnd(.25, .75)) * U; f.gy = (pick[1] + rnd(.25, .75)) * U;
+}
+function updateFish(dt) {
+  for (const f of FISH) {
+    f.t += dt; f.flee = Math.max(0, f.flee - dt);
+    const tx = Math.floor(f.x / U), ty = Math.floor(f.y / U);
+    if (!inB(tx, ty) || !map[ty][tx].water) { fishGoal(f); }
+    if (!f.flee) for (const y of ALL) if (y.moving && Math.hypot(y.x - f.x, y.y - f.y) < U * 0.75) { fishGoal(f, y.x, y.y); f.flee = 1000; break; }
+    const dx = f.gx - f.x, dy = f.gy - f.y, d = Math.hypot(dx, dy);
+    if (d < 1.5) { f.wait -= dt; if (f.wait <= 0) { fishGoal(f); f.wait = rnd(800, 3200); } }
+    else { const sp = f.flee ? 0.055 : 0.013; const m = Math.min(d, sp * dt); f.x += dx / d * m; f.y += dy / d * m; f.a += angDiff(Math.atan2(dy, dx), f.a) * Math.min(1, dt * 0.01); }
+    if (f.jump > 0) { f.jump = Math.max(0, f.jump - dt / 750); if (!f.jump) splash(f.x, f.y); }
+    else if (Math.random() < dt / 25000) { f.jump = 1; splash(f.x, f.y); }
+  }
+  fishT += dt; if (fishT > 60000) { fishT = 0; if (FISH.length < 4) spawnFish(); }
+}
+function drawFish(c, f) {
+  const jumping = f.jump > 0, z = jumping ? WATER_Z + Math.sin((1 - f.jump) * Math.PI) * 11 : WATER_Z - 1;
+  const ca = Math.cos(f.a), sa = Math.sin(f.a), wig = Math.sin(f.t * (f.flee ? 0.03 : 0.012)) * 0.6;
+  const head = iso(f.x + ca * 5, f.y + sa * 5, z), tail = iso(f.x - ca * 4, f.y - sa * 4, z);
+  const t1 = iso(f.x - ca * 8 - sa * 3 * (1 + wig), f.y - sa * 8 + ca * 3 * (1 + wig), z), t2 = iso(f.x - ca * 8 + sa * 3 * (1 - wig), f.y - sa * 8 - ca * 3 * (1 - wig), z);
+  const col = jumping ? '#8fb8d2' : 'rgba(18,48,66,.42)';
+  if (jumping) { cap(c, head, tail, 6.2, '#2a4a5c'); }
+  cap(c, head, tail, 4.6, col);
+  c.fillStyle = col; c.beginPath(); c.moveTo(tail[0], tail[1]); c.lineTo(t1[0], t1[1]); c.lineTo(t2[0], t2[1]); c.closePath(); c.fill();
+}
+
+/* ---------------- 寵物（孵化後） ---------------- */
+let pet = null;
+function makePet(x, y) { pet = { x, y, z: 0, hop: 0, face: 0, t: 0, emo: null, blink: 0, bt: 2000 }; }
+function updatePet(dt) {
+  if (!pet) return;
+  pet.t += dt;
+  const tx = ME.x - Math.cos(ME.face) * 20, ty = ME.y - Math.sin(ME.face) * 20, dx = tx - pet.x, dy = ty - pet.y, d = Math.hypot(dx, dy);
+  if (d > U * 8) { pet.x = ME.x; pet.y = ME.y; }
+  else if (d > 5) { const sp = Math.min(d, (d > 50 ? 0.11 : 0.05) * dt); pet.x += dx / d * sp; pet.y += dy / d * sp; pet.face += angDiff(Math.atan2(dy, dx), pet.face) * Math.min(1, dt * 0.01); pet.hop += dt * 0.013; }
+  else pet.hop = Math.round(pet.hop / Math.PI) * Math.PI;
+  const px = clamp(Math.floor(pet.x / U), 0, MAP_W - 1), py = clamp(Math.floor(pet.y / U), 0, MAP_H - 1);
+  pet.z += (Math.max(topZ(px, py), WATER_Z) - pet.z) * Math.min(1, dt * 0.012);
+  if (pet.emo) { pet.emo.t += dt; if (pet.emo.t > pet.emo.dur) pet.emo = null; }
+  pet.bt -= dt; if (pet.bt <= 0) { pet.blink = 1; pet.bt = rnd(1800, 4000); } pet.blink = Math.max(0, pet.blink - dt / 140);
+}
+function drawPet(c) {
+  const h = Math.abs(Math.sin(pet.hop)) * 3.5, [bx, by] = iso(pet.x, pet.y, pet.z), [sx, sy] = iso(pet.x, pet.y, pet.z + 6 + h);
+  shadowAt(c, bx, by, 6, 3, 0.2);
+  const fcx = (Math.cos(pet.face) - Math.sin(pet.face)), cam = (Math.cos(pet.face) + Math.sin(pet.face)) * RS2;
+  const tl = [sx - fcx * 6, sy + 1]; cap(c, [sx, sy + 1], tl, 4.5, '#2f5a28'); cap(c, [sx, sy + 1], tl, 3, '#79b85a');
+  for (let i = -1; i <= 1; i++) { c.fillStyle = '#e8a55a'; c.beginPath(); c.moveTo(sx + i * 3 - fcx * 1.5 - 1.6, sy - 5); c.lineTo(sx + i * 3 - fcx * 1.5, sy - 8.5); c.lineTo(sx + i * 3 - fcx * 1.5 + 1.6, sy - 5); c.closePath(); c.fill(); }
+  blob(c, sx, sy, 7, 6, '#79b85a', '#2f5a28', 1);
+  if (cam > -0.3) {
+    blob(c, sx + fcx * 1.4, sy + 1.8, 4, 3, '#dff0b8');
+    const eo = open => { for (const s of [-1, 1]) { const ex = sx + fcx * 2.2 + s * 2.2, ey = sy - 1.5; if (open) { blob(c, ex, ey, 1.1, 1.5, '#1d2a14'); blob(c, ex - 0.3, ey - 0.6, 0.4, 0.4, '#fff'); } else cap(c, [ex - 1, ey], [ex + 1, ey], 0.8, '#1d2a14'); } };
+    eo(pet.blink < 0.5);
+    blob(c, sx + fcx * 2.2 - 3.6, sy + 0.8, 1.2, 0.7, 'rgba(255,120,110,.35)'); blob(c, sx + fcx * 2.2 + 3.6, sy + 0.8, 1.2, 0.7, 'rgba(255,120,110,.35)');
+  }
+  for (const s of [-1, 1]) blob(c, sx + s * 3.5, sy + 5.5 - (s > 0 ? h * 0.2 : 0), 1.8, 1.2, '#5e9a44', '#2f5a28', 0.7);
+}
+
+/* ---------------- 背包 ---------------- */
+const bagCount = (y, k) => { const s = y.bag.find(s => s.k === k); return s ? s.n : 0; };
+const bagTotal = y => y.bag.reduce((a, s) => a + s.n, 0);
+function bagAdd(y, k, n = 1) {
+  const m = Math.min(n, y.cap - bagTotal(y)); if (m <= 0) return 0;
+  let s = y.bag.find(s => s.k === k); if (!s) { s = { k, n: 0 }; y.bag.push(s); }
+  s.n += m; if (y === ME) refreshBag(); return m;
+}
+function bagTake(y, k, n = 1) {
+  const s = y.bag.find(s => s.k === k); if (!s || s.n < n) return false;
+  s.n -= n;
+  if (s.n <= 0) { y.bag.splice(y.bag.indexOf(s), 1); if (y.sel === k) y.sel = null; if (y.hold === k) y.hold = null; }
+  if (y === ME) refreshBag();
+  return true;
+}
+const hasNeeds = (y, need) => Object.entries(need).every(([k, n]) => bagCount(y, k) >= n);
+function payNeeds(y, need) { for (const [k, n] of Object.entries(need)) bagTake(y, k, n); }
+function bestFood(y) { let b = null, bv = -1; for (const s of y.bag) { const f = IT[s.k].food; if (f && f > bv) { bv = f; b = s.k; } } return b; }
+const basketTotal = b => b.items.reduce((a, s) => a + s.n, 0);
+function basketAdd(b, k, n) { const m = Math.min(40 - basketTotal(b), n); if (m <= 0) return 0; let s = b.items.find(s => s.k === k); if (!s) { s = { k, n: 0 }; b.items.push(s); } s.n += m; return m; }
+function basketTake(b, k, n = 1) { const s = b.items.find(s => s.k === k); if (!s) return 0; const m = Math.min(n, s.n); s.n -= m; if (s.n <= 0) b.items.splice(b.items.indexOf(s), 1); return m; }
+
+/* ---------------- 行為共用 ---------------- */
+function give(y, k, n = 1) {
+  const got = bagAdd(y, k, n);
+  if (got < n) dropNear(y.tx, y.ty, k, n - got, y.name);
+  if (y === ME) {
+    floatTxt(y, `+${n} ${IT[k].n}`);
+    ST.get[k] = (ST.get[k] || 0) + n; bump('get_' + k, n);
+    if (got < n) toast('背包滿了，先放在地上');
+  } else if (!IT[k].tool) y.hold = k;
+}
+const canHarvest = o => (o.type === 'tree' && o.sticks > 0) || (o.type === 'fruitTree' && o.fruit > 0) || (o.type === 'bush' && o.berries > 0) || (o.type === 'boulder' && o.stones > 0) || (o.type === 'grass' && o.n > 0);
+function emptyMsg(o) { return { tree: '樹枝搖光了，過一陣子會再長', fruitTree: '果子摘完了，過一陣子會再結', bush: '莓果採完了，過一陣子會再長', boulder: '敲不下石塊了，等等再來', grass: '草被割光了，過一陣子會再長' }[o.type] || '這裡沒東西'; }
+function harvest(y, o, want) {
+  switch (o.type) {
+    case 'tree': { if (o.sticks <= 0) return null; const n = Math.min(o.sticks, bagCount(y, 'axe') ? 2 : 1); o.sticks -= n; o.shake = 1; leafFx(o); give(y, 'stick', n); return 'stick'; }
+    case 'fruitTree': if (o.fruit <= 0) return null; o.fruit--; o.shake = 1; leafFx(o); give(y, 'fruit', 1); return 'fruit';
+    case 'bush': if (o.berries <= 0) return null; o.berries--; o.shake = 1; give(y, 'berry', 1); if (y === ME) bump('harvest_bush'); return 'berry';
+    case 'boulder': if (o.stones <= 0) return null; o.stones--; o.shake = 1; chipFx(o); give(y, 'stone', 1); return 'stone';
+    case 'grass': if (o.n <= 0) return null; o.n--; give(y, 'grass', 1); return 'grass';
+    case 'pile': {
+      const room = y.cap - bagTotal(y); if (room <= 0) { if (y === ME) toast('背包滿了'); return null; }
+      const m = Math.min(o.n, room), k = o.k; o.n -= m; if (o.n <= 0) removeObj(o); give(y, k, m); return k;
+    }
+    case 'basket': {
+      let k = want === 'food' ? o.items.filter(s => IT[s.k].food).sort((a, b) => IT[b.k].food - IT[a.k].food).map(s => s.k)[0] : want;
+      if (!k || !basketTake(o, k, 1)) return null;
+      give(y, k, 1); return k;
+    }
+  }
+  return null;
+}
+function provides(o, k, noBasket) {
+  switch (o.type) {
+    case 'tree': return k === 'stick' && o.sticks > 0;
+    case 'boulder': return k === 'stone' && o.stones > 0;
+    case 'grass': return k === 'grass' && o.n > 0;
+    case 'bush': return k === 'berry' && o.berries > 0;
+    case 'fruitTree': return k === 'fruit' && o.fruit > 0;
+    case 'pile': return o.k === k && !(o.by === '我' && gameT - o.born < 30000);
+    case 'basket': return !noBasket && o.items.some(s => s.k === k);
+  }
+  return false;
+}
+function isFoodSource(o) {
+  if (o.type === 'bush') return o.berries > 0;
+  if (o.type === 'fruitTree') return o.fruit > 0;
+  if (o.type === 'pile') return !!IT[o.k].food && !(o.by === '我' && gameT - o.born < 30000);
+  if (o.type === 'basket') return o.items.some(s => IT[s.k].food);
+  return false;
+}
+function eatItem(y, k) {
+  if (!bagTake(y, k)) return false;
+  y.hunger = clamp(y.hunger + IT[k].food, 0, 100); y.fun = clamp(y.fun + 4, 0, 100);
+  if (k === 'fruit' && (y === ME || Math.random() < 0.5)) give(y, 'seed', 1);
+  if (y === ME) { ST.eat++; floatTxt(y, `飽足 +${IT[k].food}`, '#ffd08a'); }
+  y.emote(pickR(['😋', '😋', '❤️']), 1200);
+  return true;
+}
+function cookAt(y, fire, k) {
+  if (!fire || fire.fuel <= 0 || !W.objs.includes(fire)) { if (y === ME) toast('營火熄了，先加樹枝'); return false; }
+  if (!bagTake(y, k)) return false;
+  give(y, IT[k].cook, 1);
+  const cx = (fire.x + .5) * U, cy = (fire.y + .5) * U, z = topZ(fire.x, fire.y);
+  for (let i = 0; i < 6; i++) fx.push({ k: 'spark', x: cx + rnd(-4, 4), y: cy + rnd(-4, 4), z: z + 8, vx: rnd(-0.01, 0.01), vy: rnd(-0.01, 0.01), vz: rnd(0.02, 0.04), t: 0, life: 600, c: '#ffcf6a' });
+  if (y === ME) { ST.cook++; bump('cook'); }
+  y.emote('🤤', 1200);
+  return true;
+}
+function addFuel(y, fire) {
+  if (!W.objs.includes(fire) || !bagTake(y, 'stick')) return false;
+  const was = fire.fuel; fire.fuel = Math.min(100, fire.fuel + 35);
+  const cx = (fire.x + .5) * U, cy = (fire.y + .5) * U, z = topZ(fire.x, fire.y);
+  for (let i = 0; i < 8; i++) fx.push({ k: 'spark', x: cx, y: cy, z: z + 6, vx: rnd(-0.02, 0.02), vy: rnd(-0.02, 0.02), vz: rnd(0.03, 0.06), t: 0, life: 700, c: '#ffb347' });
+  if (y === ME) { floatTxt(y, was <= 0 ? '重新點燃！' : `柴火 ${Math.round(fire.fuel)}%`, '#ffcf6a'); }
+  return true;
+}
+function tryCatch(y, f) {
+  if (!FISH.includes(f)) { if (y === ME) toast('魚游走了…'); y.emote('😣', 1000); return false; }
+  const d = Math.hypot(f.x - y.x, f.y - y.y), sp = bagCount(y, 'spear') > 0;
+  const p = d < U * 1.9 ? (sp ? 0.85 : 0.35) + (y.ai ? 0.1 : 0) : 0;
+  splash(f.x, f.y);
+  if (Math.random() < p) {
+    FISH.splice(FISH.indexOf(f), 1); give(y, 'fish', 1); y.emote('😆', 1400);
+    if (y === ME) toast(sp ? '抓到魚了！拿去營火烤' : '徒手抓到魚了！');
+    return true;
+  }
+  fishGoal(f, y.x, y.y); f.flee = 1200; y.emote('😣', 1200);
+  if (y === ME) toast(sp ? '差一點！' : '差一點！做把魚叉會好抓很多');
+  return false;
+}
+
+/* =========================================================
+   AI（兩隻自動小野人）
+   ========================================================= */
+const PERSONAS = [
+  {
+    id: 'pong', name: '阿蓬', trait: '溫和・愛採集', hair: 'shaggy', band: null,
+    col: { hair: '#6e4a2c', hairHi: '#a47a52', tunic: '#8fae62', spot: '#56763a', skin: '#f0bf93', skinB: '#d9a077' },
+    w: { tend: 1.6, build: 1.3, gather: 1.4, curious: 0.6, social: 1.0, play: 0.7, fish: 0.35 },
+    likes: ['fruit', 'flower', 'wreath', 'berry', 'cookedMush'], gatherW: { berry: 3, stick: 2, grass: 2, stone: 1, fruit: 2 },
+    hoard: true, plants: true, pickP: 0.35, nOff: -0.4, spawn: [-2, 1],
+  },
+  {
+    id: 'shi', name: '小石', trait: '好奇・愛玩', hair: 'topknot', band: '#c4453a',
+    col: { hair: '#2e2a2a', hairHi: '#5d5553', tunic: '#9aa3b3', spot: '#5e6879', skin: '#f5caa2', skinB: '#e0ab80' },
+    w: { tend: 0.6, build: 0.5, gather: 0.7, curious: 1.6, social: 1.2, play: 1.5, fish: 1.4 },
+    likes: ['shell', 'cookedFish', 'fish', 'mushroom', 'wreath'], gatherW: { stone: 3, stick: 2, berry: 1 },
+    hoard: false, plants: false, pickP: 0.6, nOff: 0.6, spawn: [2, -1],
+  },
+];
+const STATUS = {
+  eat: '找東西吃', sleep: '睡覺中', nap: '打盹', tend: '照顧營火', buildFire: '生營火', buildBasket: '編籃子', plant: '種樹',
+  gather: '採集中', store: '把東西收進籃子', inspect: '好奇地查看', explore: '到處探險', social: '找人聊天', chat: '聊天中',
+  play: '玩鬼抓人', fish: '抓魚', spear: '做魚叉', cairn: '堆石頭', gift: '想送你東西', idle: '發呆', cheer: '歡呼！', campfire: '圍著營火',
+};
+const TOPICS = ['🍓', '🐟', '🔥', '🌙', '⭐', '🦋', '🍄', '🐚', '🌳', '🎵', '☁️', '🥚'];
+const REPLIES = ['😄', '😆', '👍', '❤️', '😮', '🤔', '😂'];
+const _prev = new Int32Array(NT), _dist = new Int16Array(NT);
+function seek(y, fn, opt = {}) {
+  const maxD = opt.maxD || 60;
+  _prev.fill(-1); const s0 = gi(y.tx, y.ty), q = [s0]; _prev[s0] = s0; _dist[s0] = 0;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], cx = c % MAP_W, cy = (c / MAP_W) | 0;
+    const tg = fn(cx, cy);
+    if (tg) { const path = []; for (let k = c; k !== s0; k = _prev[k]) path.push([k % MAP_W, (k / MAP_W) | 0]); path.reverse(); return { path, target: tg, x: cx, y: cy }; }
+    if (_dist[c] >= maxD) continue;
+    for (const d of DIRS) {
+      const nx = cx + d.dx, ny = cy + d.dy; if (!inB(nx, ny)) continue;
+      const id = gi(nx, ny); if (_prev[id] !== -1 || !canMove(cx, cy, nx, ny)) continue;
+      if (opt.avoid) { const o = yerenAt(nx, ny, y); if (o && !o.moving) continue; }
+      _prev[id] = c; _dist[id] = _dist[c] + 1; q.push(id);
+    }
+  }
+  return null;
+}
+function bfsDist(y) {
+  const dist = new Int16Array(NT).fill(-1), s0 = gi(y.tx, y.ty), q = [s0]; dist[s0] = 0;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], cx = c % MAP_W, cy = (c / MAP_W) | 0;
+    for (const d of DIRS) { const nx = cx + d.dx, ny = cy + d.dy; if (!inB(nx, ny)) continue; const id = gi(nx, ny); if (dist[id] >= 0 || !canMove(cx, cy, nx, ny)) continue; dist[id] = dist[c] + 1; q.push(id); }
+  }
+  return dist;
+}
+function targetsFrom(cx, cy, test) {
+  const own = objAt(cx, cy); if (own && own.type === 'pile' && test(own)) return own;
+  for (const d of DIRS) {
+    const nx = cx + d.dx, ny = cy + d.dy; if (!inB(nx, ny)) continue;
+    const o = objAt(nx, ny);
+    if (o && o.type !== 'pile' && Math.abs(lvl(nx, ny) - lvl(cx, cy)) <= 1 && test(o)) return o;
+  }
+  return null;
+}
+const objT = test => (cx, cy) => targetsFrom(cx, cy, test);
+const adjY = o => (cx, cy) => manh(cx, cy, o.tx, o.ty) === 1 ? o : null;
+function fishFn(cx, cy) {
+  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const x = cx + dx, y = cy + dy; if (!inB(x, y) || !map[y][x].water) continue;
+    const f = FISH.find(f => Math.floor(f.x / U) === x && Math.floor(f.y / U) === y && !f.jump); if (f) return f;
+  }
+  return null;
+}
+const faceY = (a, b) => a.faceXY(b.x, b.y);
+function faceStep(y, st) {
+  if (st.face && (st.face.x !== y.tx || st.face.y !== y.ty)) y.faceTile(st.face.x, st.face.y);
+  if (st.faceY) faceY(y, st.faceY);
+  if (st.faceXY) y.faceXY(st.faceXY[0], st.faceXY[1]);
+}
+function stepTo(y, p, run) { const di = dirIdx(y.tx, y.ty, p[0], p[1]); if (di >= 0) return y.tryStep(di, run); return false; }
+const isNight = () => { const h = hourNow(); return h >= 19.5 || h < 5.5; };
+function isNightFor(y) { const h = hourNow(), off = y.ai ? y.ai.per.nOff : 0; return h >= 20 + off || h < 6 + off * 0.5; }
+function canEngage(y) { return y.ai && !y.sleeping && !['play', 'cheer', 'sleep', 'chat'].includes(y.ai.goal) && y.hunger > 15; }
+function setPlan(y, goal, steps) { y.ai.goal = goal; y.ai.plan = steps; y.ai.cur = null; }
+function releaseHut(y) { for (const o of W.objs) if (o.type === 'hut' && o.occ === y.name) o.occ = null; }
+function abortPlan(y) {
+  const A = y.ai; A.plan = []; A.cur = null; A.goal = 'idle'; y.fleeMul = 1;
+  if (y.anim && (y.anim.k === 'sit' || y.anim.k === 'sleep')) y.anim = null;
+  releaseHut(y);
+}
+function engage(y, goal, steps) {
+  if (y.anim && (y.anim.k === 'sit' || y.anim.k === 'sleep')) y.anim = null;
+  y.fleeMul = 1; releaseHut(y); setPlan(y, goal, steps);
+}
+function addAff(y, n) {
+  const A = y.ai, before = A.aff['我'];
+  A.aff['我'] = clamp(before + n, 0, 100);
+  if (before < 60 && A.aff['我'] >= 60) toast(`💕 你和${y.name}變成好朋友了！`, true);
+  else if (before < 90 && A.aff['我'] >= 90) toast(`💖 ${y.name}最喜歡你了！`, true);
+}
+function campCenter() { for (const t of ['fire', 'basket', 'hut']) { const o = W.objs.find(o => o.type === t); if (o) return [o.x, o.y]; } return START; }
+function spotFn(center, rad, test) {
+  return (cx, cy) => {
+    for (const d of DIRS) { const nx = cx + d.dx, ny = cy + d.dy; if (test(nx, ny) && manh(nx, ny, center[0], center[1]) <= rad) return { x: nx, y: ny }; }
+    return null;
+  };
+}
+function findNovel(y) {
+  return W.objs.find(o => o.by && o.by !== y.name && !y.ai.seen.has(o.id) && gameT - o.born < 180000 && manh(o.x, o.y, y.tx, y.ty) <= 12 && !(o.type === 'pile' && o.k === 'egg'));
+}
+
+/* ----- 計畫產生器 ----- */
+function planEat(y) {
+  const raw = ['fish', 'mushroom'].find(k => bagCount(y, k));
+  const fire = W.objs.find(o => o.type === 'fire' && o.fuel > 5);
+  if (raw && fire && (raw === 'fish' || Math.random() < 0.5))
+    return [{ t: 'emote', e: '🔥' }, { t: 'seek', fn: objT(o => o === fire), then: o => [{ t: 'act', anim: 'work', dur: 1300, face: o, item: raw, fn: () => cookAt(y, o, raw) }, { t: 'eat' }] }];
+  if (bestFood(y)) return [{ t: 'eat' }];
+  return [{ t: 'emote', e: '🍖' }, { t: 'seek', fn: objT(isFoodSource), then: o => [{ t: 'act', anim: 'work', dur: 900, face: o, fn: () => !!harvest(y, o, 'food') }, { t: 'eat' }] }];
+}
+function planSleep(y) {
+  const hut = W.objs.find(o => o.type === 'hut' && (!o.occ || o.occ === y.name));
+  const fire = W.objs.find(o => o.type === 'fire');
+  const tgt = hut || fire, steps = [{ t: 'emote', e: '🥱' }];
+  if (tgt) {
+    if (hut) hut.occ = y.name;
+    steps.push({ t: 'seek', fn: objT(o => o === tgt), then: o => [{ t: 'sleep', q: hut ? 1.4 : 1.15, face: o }], orElse: () => [{ t: 'sleep', q: 1 }] });
+  } else steps.push({ t: 'sleep', q: 1 });
+  return steps;
+}
+const planNap = () => [{ t: 'emote', e: '🥱' }, { t: 'sleep', nap: true, dur: 16000, q: 1 }];
+function planTend(y) {
+  const fire = W.objs.find(o => o.type === 'fire'); if (!fire) return null;
+  const s = [{ t: 'emote', e: '🔥' }];
+  if (!bagCount(y, 'stick')) s.push({ t: 'ensure', k: 'stick', n: 1 });
+  s.push({ t: 'seek', fn: objT(o => o === fire), then: o => [{ t: 'act', anim: 'work', dur: 900, face: o, item: 'stick', fn: () => addFuel(y, o) }] });
+  return s;
+}
+function planBuild(y, kind) {
+  const r = RECIPES.find(r => r.build === kind), s = [{ t: 'emote', e: '🔨' }];
+  for (const [k, n] of Object.entries(r.need)) s.push({ t: 'ensure', k, n });
+  const center = campCenter();
+  s.push({
+    t: 'seek', fn: spotFn(center, 3, validBuild), then: spot => [{
+      t: 'act', anim: 'work', dur: 2000, face: spot, fn: () => {
+        if (!validBuild(spot.x, spot.y) || !hasNeeds(y, r.need)) return false;
+        payNeeds(y, r.need); addObj(mkStruct(kind, spot.x, spot.y, y.name)); y.emote('✨');
+        toast(`${y.name}${kind === 'fire' ? '生了一堆營火' : kind === 'basket' ? '編好了一個儲物籃' : '蓋好了一間草屋'}！`);
+      }
+    }]
+  });
+  return s;
+}
+function planGather(y) {
+  const bk = W.objs.find(o => o.type === 'basket');
+  const gw = (y.ai.per.hoard && bk && basketTotal(bk) >= 30) ? { berry: 2, fruit: 1 } : y.ai.per.gatherW, ks = Object.keys(gw); let tot = 0; for (const k of ks) tot += gw[k];
+  let r = Math.random() * tot, k = ks[0]; for (const kk of ks) { r -= gw[kk]; if (r <= 0) { k = kk; break; } }
+  const s = [{ t: 'ensure', k, n: Math.min(y.cap - 1, bagCount(y, k) + 2), nb: true }];
+  if (y.ai.per.hoard) s.push({ t: 'call', fn: () => { const p = planStore(y); if (p) y.ai.plan.push(...p); } });
+  return s;
+}
+function depositAll(y, b) {
+  const keep = bestFood(y);
+  for (const s of y.bag.slice()) {
+    if (IT[s.k].tool) continue;
+    const n = s.n - (s.k === keep ? 1 : 0); if (n <= 0) continue;
+    const m = basketAdd(b, s.k, n); if (m > 0) bagTake(y, s.k, m);
+  }
+  y.hold = null; y.emote('🧺', 1200);
+}
+function planStore(y) {
+  const b = W.objs.find(o => o.type === 'basket'); if (!b || basketTotal(b) >= 38 || !y.bag.some(s => !IT[s.k].tool)) return null;
+  return [{ t: 'seek', fn: objT(o => o === b), then: o => [{ t: 'act', anim: 'work', dur: 800, face: o, fn: () => depositAll(y, o) }] }];
+}
+function planInspect(y, o) {
+  return [{ t: 'emote', e: '❗', dur: 1000 }, {
+    t: 'seek', fn: objT(x => x === o), then: () => [{
+      t: 'act', anim: 'inspect', dur: 1800, face: o, fn: () => {
+        y.ai.seen.add(o.id); y.fun = Math.min(100, y.fun + 22);
+        if (!W.objs.includes(o)) return;
+        y.emote(o.type === 'sprout' ? '🌱' : BLOCK[o.type] ? pickR(['😮', '✨', '👍']) : pickR(['🤔', '👀', '😮']), 1600);
+        if (o.by === '我') addAff(y, 1);
+        if (o.type === 'pile' && o.by === '我' && gameT - o.born > 20000 && manh(o.x, o.y, ME.tx, ME.ty) > 4 && hasObj('basket') && Math.random() < y.ai.per.pickP) {
+          const k = o.k;
+          if (harvest(y, o, k)) { toast(`${y.name}撿走了你放在地上的${IT[k].n}（會收進儲物籃）`); const s = planStore(y); if (s) y.ai.plan.unshift(...s); }
+        }
+      }
+    }]
+  }];
+}
+function planExplore(y) {
+  const dist = bfsDist(y), c = [];
+  for (let i = 0; i < NT; i++) if (dist[i] >= 5 && dist[i] <= 14) c.push(i);
+  if (!c.length) return null;
+  const i = pickR(c);
+  return [{ t: 'emote', e: pickR(['🎵', '👀', '🌿']), dur: 1200 }, { t: 'go', to: [i % MAP_W, (i / MAP_W) | 0], max: 30000 },
+  { t: 'act', anim: 'inspect', dur: 1600, fn: () => { y.fun = Math.min(100, y.fun + 20); if (Math.random() < 0.5) y.emote(pickR(['✨', '🦋', '😊', '🌈', '🐞'])); } }];
+}
+function planSocial(y) {
+  const others = ALL.filter(o => o !== y && !o.sleeping && (o !== ME || !tag));
+  if (!others.length) return null;
+  let tgt = null, bs = -1e9;
+  for (const o of others) { const s = (y.ai.aff[o.name] || 30) * 0.4 - manh(y.tx, y.ty, o.tx, o.ty) * 2 + Math.random() * 20; if (s > bs) { bs = s; tgt = o; } }
+  return [{ t: 'emote', e: '💬', dur: 1200 }, { t: 'approach', target: tgt }, { t: 'chat', with: tgt }];
+}
+function planPlay(y) {
+  if (!tag && !ME.sleeping && (y.ai.aff['我'] || 0) >= 30 && manh(y.tx, y.ty, ME.tx, ME.ty) < 14 && Math.random() < 0.4)
+    return [{ t: 'emote', e: '❗', dur: 1000 }, { t: 'approach', target: ME }, { t: 'act', anim: 'wave', dur: 900, faceY: ME, fn: () => { if (tag || ME.sleeping) return false; startTag(y, true); } }];
+  const others = AIS.filter(o => o !== y && canEngage(o) && o.fun < 85);
+  if (!others.length) return null;
+  const o = pickR(others);
+  return [{ t: 'emote', e: '🏃', dur: 1200 }, { t: 'approach', target: o },
+  { t: 'call', fn: () => { if (!canEngage(o)) return false; engage(o, 'play', [{ t: 'emote', e: '😝' }, { t: 'flee', from: y, dur: 11000 }]); } },
+  { t: 'wait', dur: 700 }, { t: 'chase', target: o, dur: 11000 }];
+}
+function planFish(y) {
+  if (!FISH.length || bagTotal(y) >= y.cap - 1 || bagCount(y, 'fish') >= 3) return null;
+  return [{ t: 'emote', e: '🎣', dur: 1200 }, { t: 'seek', fn: fishFn, then: f => [{ t: 'act', anim: 'work', dur: 1300, faceXY: [f.x, f.y], item: bagCount(y, 'spear') ? 'spear' : null, fn: () => { tryCatch(y, f); } }] }];
+}
+function planSpear(y) {
+  if (bagCount(y, 'spear')) return null;
+  return [{ t: 'ensure', k: 'stick', n: 2 }, { t: 'ensure', k: 'stone', n: 1 },
+  { t: 'act', anim: 'work', dur: 1500, fn: () => { if (!hasNeeds(y, { stick: 2, stone: 1 })) return false; payNeeds(y, { stick: 2, stone: 1 }); bagAdd(y, 'spear', 1); y.emote('✨'); } }];
+}
+function planCairn(y) {
+  if (W.objs.filter(o => o.type === 'cairn').length >= 4) return null;
+  return [{ t: 'ensure', k: 'stone', n: 3 }, {
+    t: 'seek', fn: spotFn([y.tx, y.ty], 12, (x, yy) => validBuild(x, yy) && lvl(x, yy) >= 2), then: spot => [{
+      t: 'act', anim: 'work', dur: 1800, face: spot, fn: () => {
+        if (!validBuild(spot.x, spot.y) || bagCount(y, 'stone') < 3) return false;
+        bagTake(y, 'stone', 3); addObj(mkStruct('cairn', spot.x, spot.y, y.name)); y.fun = Math.min(100, y.fun + 30); y.emote('😎', 1500);
+      }
+    }]
+  }];
+}
+function planPlant(y) {
+  if (!bagCount(y, 'seed')) return null;
+  return [{ t: 'emote', e: '🌱' }, {
+    t: 'seek', fn: spotFn(campCenter(), 6, plantable), then: spot => [{
+      t: 'act', anim: 'work', dur: 1000, face: spot, fn: () => {
+        if (!plantable(spot.x, spot.y) || !bagTake(y, 'seed')) return false;
+        addObj({ type: 'sprout', x: spot.x, y: spot.y, grow: 0, by: y.name }); y.emote('😊');
+      }
+    }]
+  }];
+}
+function planGiftPlayer(y) {
+  if (ME.sleeping || manh(y.tx, y.ty, ME.tx, ME.ty) > 16) return null;
+  let s = ME.hunger < 40 ? y.bag.find(s => IT[s.k].food) : null;
+  if (!s) s = y.bag.find(s => !IT[s.k].tool && s.k !== 'seed');
+  if (!s) return null;
+  const k = s.k;
+  return [{ t: 'emote', e: '🎁', dur: 1200 }, { t: 'approach', target: ME }, {
+    t: 'act', anim: 'give', dur: 900, item: k, faceY: ME, fn: () => {
+      if (manh(y.tx, y.ty, ME.tx, ME.ty) > 1 || !bagTake(y, k)) return false;
+      give(ME, k, 1); y.ai.giftCD = 120000; y.emote('😊'); toast(`${y.name}送你一個${IT[k].n}！`);
+    }
+  }];
+}
+function planCampfire(y) {
+  const fire = W.objs.find(o => o.type === 'fire' && o.fuel > 0); if (!fire) return null;
+  return [{ t: 'seek', fn: objT(o => o === fire), then: o => [{ t: 'sit', dur: rnd(8000, 13000), face: o, e: pickR(['🎵', '😌', '🔥']) }] }];
+}
+function planIdle(y) {
+  if (Math.random() < 0.5) return [{ t: 'sit', dur: rnd(3000, 6000) }];
+  const c = [];
+  for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = y.tx + i, yy = y.ty + j; if (inB(x, yy) && !isBlocked(x, yy) && (i || j)) c.push([x, yy]); }
+  return c.length ? [{ t: 'go', to: pickR(c), max: 8000 }] : [{ t: 'wait', dur: 1500 }];
+}
+function taskDone(id) { return TASKS.findIndex(t => t.id === id) < taskIdx; }
+function think(y) {
+  const A = y.ai, w = A.per.w, h = hourNow();
+  const other = yerenAt(y.tx, y.ty, y);
+  if (other && !other.moving) {
+    const n = DIRS.map(d => [y.tx + d.dx, y.ty + d.dy]).find(([x, yy]) => canMove(y.tx, y.ty, x, yy) && !yerenAt(x, yy, y));
+    if (n) return setPlan(y, 'idle', [{ t: 'go', to: n }]);
+  }
+  if (bagTotal(y) >= y.cap - 1) {
+    const s = y.bag.filter(s => !IT[s.k].tool && !IT[s.k].food).sort((a, b) => b.n - a.n)[0] || y.bag.filter(s => !IT[s.k].tool).sort((a, b) => b.n - a.n)[0];
+    if (s) { const k = s.k, n = Math.ceil(s.n / 2); if (bagTake(y, k, n)) dropNear(y.tx, y.ty, k, n, y.name); }
+  }
+  if (isNightFor(y)) return setPlan(y, 'sleep', planSleep(y));
+  const fire = W.objs.find(o => o.type === 'fire');
+  const opts = [];
+  const add = (s, key, fn) => { if (s > 0) opts.push({ s: s * (0.75 + Math.random() * 0.5), key, fn }); };
+  add(y.hunger < 60 ? (64 - y.hunger) * 2.2 : 0, 'eat', planEat);
+  add(y.energy < 25 ? 70 : 0, 'nap', planNap);
+  add(fire && fire.fuel < 45 ? (50 - fire.fuel) * w.tend : 0, 'tend', planTend);
+  add(!fire && (taskDone('fire') || gameT > 480000) ? 30 * w.build : 0, 'buildFire', y2 => planBuild(y2, 'fire'));
+  add(!hasObj('basket') && A.per.hoard ? 26 * w.build : 0, 'buildBasket', y2 => planBuild(y2, 'basket'));
+  add(A.per.plants && bagCount(y, 'seed') ? 20 : 0, 'plant', planPlant);
+  add(bagTotal(y) < y.cap - 1 ? 16 * w.gather : 0, 'gather', planGather);
+  const bk = W.objs.find(o => o.type === 'basket');
+  add(bagTotal(y) >= 4 && bk && basketTotal(bk) < 34 ? 12 * w.gather + bagTotal(y) * 2 : 0, 'store', planStore);
+  const nov = findNovel(y); add(nov ? 42 * w.curious : 0, 'inspect', y2 => planInspect(y2, nov));
+  add((100 - y.fun) * 0.3 * w.curious, 'explore', planExplore);
+  add((100 - y.social) * 0.42 * w.social, 'social', planSocial);
+  add(y.fun < 60 ? (65 - y.fun) * 0.55 * w.play : 0, 'play', planPlay);
+  add(h > 6 && h < 18 ? 12 * w.fish : 0, 'fish', planFish);
+  add(A.per.id === 'shi' && !bagCount(y, 'spear') ? 14 : 0, 'spear', planSpear);
+  add(A.per.id === 'shi' && bagCount(y, 'stone') >= 3 && y.fun < 75 ? 16 : 0, 'cairn', planCairn);
+  add(A.giftCD <= 0 && (A.aff['我'] || 0) >= 50 ? (ME.hunger < 40 ? 40 : 15) : 0, 'gift', planGiftPlayer);
+  add(fire && fire.fuel > 0 && h >= 17.5 ? 34 : 0, 'campfire', planCampfire);
+  add(9, 'idle', planIdle);
+  opts.sort((a, b) => b.s - a.s);
+  for (const o of opts) { const pl = o.fn(y); if (pl && pl.length) return setPlan(y, o.key, pl); }
+  setPlan(y, 'idle', [{ t: 'wait', dur: 1200 }]);
+}
+function shouldInterrupt(y) {
+  const g = y.ai.goal;
+  if (isNightFor(y) && !['sleep', 'play', 'chat', 'cheer'].includes(g)) return true;
+  if (y.hunger < 10 && !['eat', 'sleep', 'play'].includes(g)) return true;
+  if (y.energy < 5 && !['sleep', 'nap'].includes(g)) return true;
+  return false;
+}
+function followPath(y, st, dt) {
+  if (st.el > (st.max || 30000)) return 'fail';
+  if (y.moving) return 'run';
+  if (!st.path.length) return 'done';
+  const [nx, ny] = st.path[0], o = yerenAt(nx, ny, y);
+  if (o && !o.moving) { st.wt = (st.wt || 0) + dt; if (st.wt < 900) return 'run'; }
+  if (!stepTo(y, st.path[0], !!st.run)) return 'fail';
+  st.path.shift(); st.wt = 0; return 'run';
+}
+function runStep(y, st, dt) {
+  const A = y.ai; st.el = (st.el || 0) + dt;
+  switch (st.t) {
+    case 'go':
+      if (!st.path) { const g = st.to, r = seek(y, (cx, cy) => cx === g[0] && cy === g[1] ? true : null, { avoid: true, maxD: 40 }); if (!r) return 'fail'; st.path = r.path; }
+      return followPath(y, st, dt);
+    case 'seek': {
+      const r = seek(y, st.fn, { avoid: true, maxD: st.maxD || 40 });
+      if (!r) { if (st.orElse) { A.plan.unshift(...st.orElse()); return 'done'; } return 'fail'; }
+      A.plan.unshift({ t: 'go', path: r.path }, ...st.then(r.target));
+      return 'done';
+    }
+    case 'approach': {
+      const o = st.target;
+      if (manh(y.tx, y.ty, o.tx, o.ty) <= 1 && !o.moving) { faceY(y, o); return 'done'; }
+      if (st.el > (st.max || 16000)) return 'fail';
+      if (y.moving) return 'run';
+      const r = seek(y, adjY(o), { avoid: true, maxD: 40 });
+      if (!r) return 'fail';
+      if (r.path.length) stepTo(y, r.path[0], manh(y.tx, y.ty, o.tx, o.ty) > 6);
+      return 'run';
+    }
+    case 'act':
+      if (!st.started) { st.started = true; faceStep(y, st); y.doAnim(st.anim, st.dur, null, st.item || null); return 'run'; }
+      if (y.anim && y.anim.k === st.anim) return 'run';
+      if (st.fn && st.fn() === false) return 'fail';
+      return 'done';
+    case 'eat':
+      if (!st.k) { st.k = bestFood(y); if (!st.k) return 'fail'; y.doAnim('eat', 1300, null, st.k); return 'run'; }
+      if (y.anim && y.anim.k === 'eat') return 'run';
+      eatItem(y, st.k); return 'done';
+    case 'emote': y.emote(st.e, st.dur || 1500); return 'done';
+    case 'faceY': faceY(y, st.y); return 'done';
+    case 'wait': return st.el >= st.dur ? 'done' : 'run';
+    case 'call': return st.fn() === false ? 'fail' : 'done';
+    case 'ensure': {
+      if (bagCount(y, st.k) >= st.n) return 'done';
+      const tr = st.tr || 0; if (tr > 8 || bagTotal(y) >= y.cap) return 'fail';
+      A.plan.unshift({ t: 'seek', fn: objT(o => provides(o, st.k, st.nb)), then: o => [{ t: 'act', anim: 'work', dur: 850, face: o, fn: () => !!harvest(y, o, st.k) }] },
+        { t: 'ensure', k: st.k, n: st.n, nb: st.nb, tr: tr + 1 });
+      return 'done';
+    }
+    case 'sleep': {
+      if (!st.started) { st.started = true; faceStep(y, st); y.sleepQ = st.q || 1; }
+      if (!y.sleeping) y.doAnim('sleep', 0);
+      const wake = st.nap ? (st.el > st.dur || y.energy >= 92) : (!isNightFor(y) && (y.energy > 60 || hourNow() > 8));
+      if (wake) { y.anim = null; releaseHut(y); if (!st.nap && Math.random() < 0.5) y.emote('☀️'); return 'done'; }
+      return 'run';
+    }
+    case 'sit':
+      if (!st.started) { st.started = true; faceStep(y, st); y.doAnim('sit', 0); if (st.e) y.emote(st.e, 1500); }
+      if (st.el >= st.dur) { if (y.anim && y.anim.k === 'sit') y.anim = null; return 'done'; }
+      return 'run';
+    case 'chat': {
+      const o = st.with;
+      if (!st.started) {
+        st.started = true; faceY(y, o); y.doAnim('wave', 900); y.emote('👋', 1200);
+        if (o.ai && canEngage(o)) { engage(o, 'chat', [{ t: 'chatB', with: y, dur: 4200 }]); st.mutual = true; }
+      }
+      if (!y.anim) faceY(y, o);
+      if (st.el > 1500 && !st.s1) { st.s1 = true; y.emote(pickR(TOPICS), 1300); }
+      if (st.el > 3200 && !st.s2) { st.s2 = true; y.emote(pickR(REPLIES), 1100); }
+      if (st.el > 4300) {
+        y.social = Math.min(100, y.social + 40); y.fun = Math.min(100, y.fun + 8);
+        A.aff[o.name] = clamp((A.aff[o.name] || 30) + 3, 0, 100);
+        if (o.ai && st.mutual) { o.social = Math.min(100, o.social + 40); o.ai.aff[y.name] = clamp((o.ai.aff[y.name] || 30) + 3, 0, 100); }
+        return 'done';
+      }
+      return 'run';
+    }
+    case 'chatB': {
+      if (!y.anim) faceY(y, st.with);
+      if (!st.s0 && st.el > 600) { st.s0 = true; y.doAnim('wave', 800); y.emote('👋', 1000); }
+      if (!st.s1 && st.el > 2400) { st.s1 = true; y.emote(pickR(REPLIES), 1300); }
+      return st.el >= st.dur ? 'done' : 'run';
+    }
+    case 'flee': {
+      y.fleeMul = 1.25;
+      if (st.el > st.dur || st.caught || (st.tagMe && (!tag || tag.ai !== y))) { y.fleeMul = 1; return 'done'; }
+      if (!y.moving) {
+        const fr = st.from || ME, dist = manh(y.tx, y.ty, fr.tx, fr.ty);
+        if (dist >= 6) { if (!st.tauntT || st.el - st.tauntT > 1800) { st.tauntT = st.el; faceY(y, fr); y.emote('😜', 1000); } return 'run'; }
+        let best = -1, bs = -1e9;
+        for (let i = 0; i < 4; i++) {
+          const d = DIRS[i], nx = y.tx + d.dx, ny = y.ty + d.dy;
+          if (!canMove(y.tx, y.ty, nx, ny) || (nx === fr.tx && ny === fr.ty)) continue;
+          let ex = 0; for (const d2 of DIRS) if (canMove(nx, ny, nx + d2.dx, ny + d2.dy)) ex++;
+          const s = manh(nx, ny, fr.tx, fr.ty) + ex * 0.35 + Math.random() * 1.3 - (map[ny][nx].water ? 0.6 : 0);
+          if (s > bs) { bs = s; best = i; }
+        }
+        if (best >= 0) y.tryStep(best, true);
+      }
+      return 'run';
+    }
+    case 'chase': {
+      const o = st.target; y.fleeMul = 1.25;
+      if (manh(y.tx, y.ty, o.tx, o.ty) <= 1) {
+        y.fleeMul = 1;
+        if (o.ai && o.ai.cur && o.ai.cur.t === 'flee') o.ai.cur.caught = true;
+        y.emote('😆', 1400); o.emote('😵', 1400); y.doAnim('cheer', 1100);
+        y.fun = Math.min(100, y.fun + 45); o.fun = Math.min(100, o.fun + 45);
+        if (o.ai) { A.aff[o.name] = clamp((A.aff[o.name] || 30) + 4, 0, 100); o.ai.aff[y.name] = clamp((o.ai.aff[y.name] || 30) + 4, 0, 100); }
+        return 'done';
+      }
+      if (st.el > st.dur) { y.fleeMul = 1; y.emote('😤', 1200); y.fun = Math.min(100, y.fun + 20); return 'done'; }
+      if (!y.moving) { const r = seek(y, adjY(o), { maxD: 30 }); if (r && r.path.length) stepTo(y, r.path[0], true); }
+      return 'run';
+    }
+  }
+  return 'fail';
+}
+function aiUpdate(y, dt) {
+  const A = y.ai; A.giftCD -= dt; A.thinkT -= dt;
+  if (A.thinkT <= 0) { A.thinkT = 2000; if (shouldInterrupt(y)) abortPlan(y); }
+  if (y.hold && !bagCount(y, y.hold)) { const s = y.bag.filter(s => !IT[s.k].tool).pop(); y.hold = s ? s.k : null; }
+  if (y.moving) return;
+  if (y.anim && y.anim.dur > 0 && !(A.cur && (A.cur.t === 'act' || A.cur.t === 'eat'))) return;
+  for (let guard = 0; guard < 5; guard++) {
+    if (!A.cur) { if (!A.plan.length) think(y); A.cur = A.plan.shift() || null; if (!A.cur) return; }
+    const r = runStep(y, A.cur, dt);
+    if (r === 'run') return;
+    if (r === 'fail') { abortPlan(y); return; }
+    A.cur = null;
+    if (y.moving || (y.anim && y.anim.dur > 0)) return;
+  }
+}
+
+/* =========================================================
+   時間、需求、任務
+   ========================================================= */
+const hourNow = () => (6 + (clock % DAY_MS) / DAY_MS * 24) % 24;
+const dayNum = () => Math.floor(clock / DAY_MS) + 1;
+function darkness() { const h = hourNow(); if (h >= 7 && h < 17.5) return 0; if (h >= 17.5 && h < 19.5) return (h - 17.5) / 2 * 0.7; if (h >= 5 && h < 7) return (7 - h) / 2 * 0.7; return 0.7; }
+function duskTint() { const h = hourNow(); if (h >= 16.5 && h < 19.5) return 0.13 * Math.sin((h - 16.5) / 3 * Math.PI); if (h >= 5 && h < 7.5) return 0.08 * Math.sin((h - 5) / 2.5 * Math.PI); return 0; }
+function timeScale() { if (!ME.sleeping) return 1; const h = hourNow(); return (h >= 19.5 || h < 6) ? 8 : 3; }
+function updateNeeds(y, wdt) {
+  const sl = y.sleeping, sit = y.anim && y.anim.k === 'sit';
+  y.hunger = clamp(y.hunger - wdt / 4200 * (sl ? 0.35 : 1), 0, 100);
+  if (sl) y.energy = clamp(y.energy + wdt / 900 * y.sleepQ, 0, 100);
+  else if (sit) y.energy = clamp(y.energy + wdt / 700, 0, 100);
+  else y.energy = clamp(y.energy - wdt / 4800 * (y.moving && y.running ? 1.6 : 1), 0, 100);
+  y.fun = clamp(y.fun - wdt / 3000, 0, 100); y.social = clamp(y.social - wdt / 3600, 0, 100);
+  const bad = y.hunger < 12 || y.energy < 10;
+  y.speedMul = (bad ? 1.3 : 1) * y.fleeMul; y.sad = bad;
+}
+function freshStats() { return { get: {}, eat: 0, greet: {}, craft: {}, build: {}, cook: 0, plant: 0, sleepNight: 0, plateau: false, hatch: false, gift: 0, tagWin: 0, stars: 0, raise: 0 }; }
+let ST = freshStats(), dST = {}, taskIdx = 0, daily = null, lastDay = 1;
+function bump(k, n = 1) { dST[k] = (dST[k] || 0) + n; }
+const maxAff = () => Math.max(...AIS.map(a => a.ai.aff['我']));
+const TASKS = [
+  { id: 'stick', t: '撿一根樹枝', h: '點一下樹，走過去搖一搖', ok: () => (ST.get.stick || 0) >= 1 },
+  { id: 'eat', t: '摘莓果來吃', h: '點莓果叢採集 → 在下方背包選莓果 → 按「吃」', ok: () => ST.eat >= 1 },
+  { id: 'greet', t: '跟阿蓬和小石打招呼', h: '點右上角的名字或直接點他們', p: () => `（${['阿蓬', '小石'].filter(n => ST.greet[n]).length}/2）`, ok: () => ST.greet['阿蓬'] && ST.greet['小石'] },
+  { id: 'axe', t: '做一把石斧', h: '背包有樹枝＋石塊後，按 🔨 製作', ok: () => ST.craft.axe },
+  { id: 'fire', t: '生一堆營火', h: '3 樹枝＋2 石塊，製作後點身邊發亮的格子', ok: () => ST.build.fire },
+  { id: 'fish', t: '抓一條魚，拿到營火烤', h: '點水裡的魚影；再選生魚點營火（做魚叉更好抓）', ok: () => ST.cook >= 1 },
+  { id: 'plant', t: '吃果子得到種子，種下去', h: '果樹結橘色果子；選種子按「種下」', ok: () => ST.plant >= 1 },
+  { id: 'hut', t: '蓋一間草屋', h: '4 樹枝＋4 乾草（乾草在草叢割）', ok: () => ST.build.hut },
+  { id: 'sleep', t: '在草屋或營火旁睡一晚', h: '天黑後走到草屋旁，點草屋或按「睡覺」', ok: () => ST.sleepNight >= 1 },
+  { id: 'friend', t: '讓一位夥伴好感度到 60', h: '送他喜歡的東西、陪他玩鬼抓人（右上角看好感）', p: () => `（${Math.round(maxAff())}/60）`, ok: () => maxAff() >= 60 },
+  { id: 'plateau', t: '堆石階，登上灰色高台', h: '石階＝3 石塊；把高台外圈的格子墊高成階梯', ok: () => ST.plateau },
+  { id: 'egg', t: '把神秘蛋帶到營火旁孵化', h: '選蛋後在燒著的營火旁邊按「放下」，保持火不滅', ok: () => ST.hatch },
+];
+const DAILY = [
+  { t: '採 5 次莓果', k: 'harvest_bush', n: 5 }, { t: '撿 2 個貝殼', k: 'get_shell', n: 2 },
+  { t: '玩鬼抓人並抓到夥伴', k: 'tag', n: 1 }, { t: '烤 2 份食物', k: 'cook', n: 2 },
+  { t: '送出 3 份禮物', k: 'gift', n: 3 }, { t: '摘 3 朵小花', k: 'get_flower', n: 3 },
+  { t: '抓 2 條魚', k: 'get_fish', n: 2 }, { t: '種 1 棵樹', k: 'plant', n: 1 },
+];
+function checkTasks() {
+  if (taskIdx < TASKS.length) {
+    const T = TASKS[taskIdx];
+    if (T.ok()) {
+      taskIdx++; ST.stars++;
+      toast(`✅ 任務完成：${T.t}　⭐+1`, true);
+      confetti(ME.x, ME.y, ME.gz, 30); ME.doAnim('cheer', 1200);
+      if (taskIdx >= TASKS.length) { daily = mkDaily(); toast('🎉 主線全部完成！之後每天會有新的小目標', true); }
+      saveGame();
+    }
+  } else if (daily && !daily.done && (dST[daily.k] || 0) >= daily.n) {
+    daily.done = true; ST.stars++; toast(`🌟 今日目標達成：${daily.t}　⭐+1`, true); confetti(ME.x, ME.y, ME.gz, 30); saveGame();
+  }
+}
+function mkDaily() { const d = pickR(DAILY); return { t: d.t, k: d.k, n: d.n, done: false }; }
+function newDay() {
+  lastDay = dayNum(); dST = {};
+  for (const a of AIS) { a.ai.greeted = false; a.ai.gifts = 0; }
+  const cnt = k => W.objs.filter(o => o.type === 'pile' && o.k === k).length;
+  if (cnt('shell') < 7) spawnPiles('shell', [0], 2);
+  if (cnt('mushroom') < 5) spawnPiles('mushroom', [2, 3], 2);
+  if (cnt('flower') < 8) spawnPiles('flower', [1, 2, 3], 2);
+  while (FISH.length < 6) spawnFish();
+  if (taskIdx >= TASKS.length) daily = mkDaily();
+  toast(`☀️ 第 ${lastDay} 天　海邊漂來了新的貝殼`, true);
+  saveGame();
+}
+function updateWorld(wdt, rdt) {
+  const conv = [];
+  for (const o of W.objs) {
+    if (o.shake > 0) o.shake = Math.max(0, o.shake - rdt / 600);
+    switch (o.type) {
+      case 'tree': if (o.sticks < 3 && (o.rg += wdt) > 40000) { o.sticks++; o.rg = 0; } break;
+      case 'fruitTree': if (o.fruit < 3 && (o.rg += wdt) > 60000) { o.fruit++; o.rg = 0; } break;
+      case 'bush': if (o.berries < 4 && (o.rg += wdt) > 35000) { o.berries++; o.rg = 0; } break;
+      case 'boulder': if (o.stones < 3 && (o.rg += wdt) > 50000) { o.stones++; o.rg = 0; } break;
+      case 'grass': if (o.n < 2 && (o.rg += wdt) > 30000) { o.n++; o.rg = 0; } break;
+      case 'sprout': o.grow = Math.min(1, o.grow + wdt / 240000); if (o.grow >= 1 && !yerenAt(o.x, o.y, null)) conv.push(o); break;
+      case 'fire':
+        if (o.fuel > 0) {
+          o.fuel = Math.max(0, o.fuel - wdt / 1500);
+          o.smT = (o.smT || 0) - rdt;
+          if (o.smT <= 0) { o.smT = 280; fx.push({ k: 'smoke', x: (o.x + .5) * U + rnd(-2, 2), y: (o.y + .5) * U + rnd(-2, 2), z: topZ(o.x, o.y) + 14, t: 0, life: 1800 }); }
+          if (o.fuel <= 0 && manh(o.x, o.y, ME.tx, ME.ty) < 10) toast('🔥 營火熄了，拿樹枝點營火可以再點燃');
+        }
+        break;
+      case 'pile':
+        if (o.by && o.by !== '我' && o.k !== 'egg' && gameT - o.born > 150000) { conv.push(o); break; }
+        if (o.k === 'egg') {
+          const warmFire = W.objs.find(f => f.type === 'fire' && f.fuel > 0 && Math.max(Math.abs(f.x - o.x), Math.abs(f.y - o.y)) <= 1);
+          if (warmFire) { if (!o.warm) toast('🥚 神秘蛋開始變暖了…讓營火繼續燒'); o.warm += wdt; if (o.warm >= 40000) conv.push(o); }
+          else o.warm = Math.max(0, o.warm - wdt * 0.3);
+          o.spT = (o.spT || 0) - rdt;
+          if (o.spT <= 0) { o.spT = 700; fx.push({ k: 'spark', x: (o.x + .5) * U + rnd(-6, 6), y: (o.y + .5) * U + rnd(-6, 6), z: topZ(o.x, o.y) + rnd(6, 16), vx: 0, vy: 0, vz: 0.004, t: 0, life: 900, c: '#fff6c2', r: 1.4 }); }
+        }
+        break;
+    }
+  }
+  for (const o of conv) {
+    if (o.type === 'pile') { if (o.k === 'egg') hatch(o); else removeObj(o); continue; }
+    removeObj(o); addObj({ type: 'fruitTree', x: o.x, y: o.y, grow: 1, fruit: 0, rg: 0, by: o.by });
+    if (o.by === '我') toast('🌳 你種的樹苗長成果樹了！');
+  }
+}
+function hatch(o) {
+  removeObj(o);
+  const cx = (o.x + .5) * U, cy = (o.y + .5) * U, z = topZ(o.x, o.y);
+  makePet(cx, cy); pet.z = z; pet.emo = { e: '❤️', t: 0, dur: 2500 };
+  confetti(cx, cy, z, 70); ST.hatch = true;
+  ME.doAnim('cheer', 1600);
+  for (const a of AIS) if (!a.sleeping) engage(a, 'cheer', [{ t: 'emote', e: '🎉', dur: 2000 }, { t: 'act', anim: 'cheer', dur: 2200 }]);
+  openSheet('🎉 蛋孵出來了！', '<div class="help">一隻綠色的小恐龍「嘟嘟」破殼而出，牠會一直跟在你身邊。<br>部落的主線故事到這裡告一段落，之後每天早上都會有新的小目標，繼續和阿蓬、小石過日子吧！</div>');
+  saveGame();
+}
+
+/* =========================================================
+   玩家
+   ========================================================= */
+let ME = null, AIS = [], ALL = [];
+let goal = null, path = [], pathRun = false, target = null, targetBad = 0, placeMode = null, tag = null;
+function goalFn(g) {
+  switch (g.kind) {
+    case 'walk': return (cx, cy) => cx === g.x && cy === g.y ? true : null;
+    case 'obj': {
+      const o = g.o;
+      if (o.type === 'pile') return (cx, cy) => cx === o.x && cy === o.y ? o : null;
+      return (cx, cy) => manh(cx, cy, o.x, o.y) === 1 && Math.abs(lvl(cx, cy) - lvl(o.x, o.y)) <= 1 ? o : null;
+    }
+    case 'fish': return (cx, cy) => manh(cx, cy, g.x, g.y) <= 1 ? g.f : null;
+    case 'yeren': return adjY(g.y);
+  }
+  return () => null;
+}
+function setGoal(g, run) {
+  if (ME.sleeping) return;
+  if (ME.anim && ME.anim.k === 'sit') ME.anim = null;
+  const res = seek(ME, goalFn(g), { maxD: 80 });
+  const tt = g.kind === 'obj' ? { x: g.o.x, y: g.o.y } : g.kind === 'yeren' ? null : { x: g.x, y: g.y };
+  if (!res) {
+    if (g.kind === 'walk' && manh(g.x, g.y, ME.tx, ME.ty) === 1) { ME.faceTile(g.x, g.y); ME.bump = 1; }
+    target = tt; targetBad = 600; goal = null; path = [];
+    if (g.kind === 'obj' || g.kind === 'fish') toast('走不到那裡（高低差太大）');
+    return;
+  }
+  goal = g; path = res.path; pathRun = !!run; target = tt; targetBad = 0;
+}
+function control() {
+  if (ME.moving) return;
+  if (ME.anim && ME.anim.dur > 0) return;
+  const di = heldDir();
+  if (di !== null) { goal = null; path = []; target = null; ME.tryStep(di, shift); return; }
+  if (!goal) return;
+  if (goal.kind === 'yeren') {
+    const r = seek(ME, adjY(goal.y), { maxD: 80 });
+    if (!r) { goal = null; return; }
+    if (!r.path.length) { const g = goal; goal = null; perform(g); return; }
+    if (!stepTo(ME, r.path[0], pathRun)) goal = null;
+    return;
+  }
+  if (path.length) {
+    if (stepTo(ME, path[0], pathRun)) path.shift();
+    else { const res = seek(ME, goalFn(goal), { maxD: 80 }); if (res && res.path.length) path = res.path; else { goal = null; target = null; } }
+    return;
+  }
+  const g = goal; goal = null; target = null; perform(g);
+}
+function perform(g) {
+  switch (g.kind) {
+    case 'obj': if (!W.objs.includes(g.o)) return; if (g.o.x !== ME.tx || g.o.y !== ME.ty) ME.faceTile(g.o.x, g.o.y); interactObj(g.o); return;
+    case 'yeren': faceY(ME, g.y); interactYeren(g.y); return;
+    case 'fish': ME.faceXY(g.f.x, g.f.y); ME.doAnim('work', 1000, () => tryCatch(ME, g.f), bagCount(ME, 'spear') ? 'spear' : null); return;
+  }
+}
+function interactObj(o) {
+  const k = ME.sel, H = (dur, cb, item) => ME.doAnim('work', dur, cb, item);
+  switch (o.type) {
+    case 'fire':
+      if (k === 'stick') return H(700, () => addFuel(ME, o), 'stick');
+      if (k && IT[k].cook) { if (o.fuel <= 0) { toast('營火熄了，先選樹枝點營火'); return; } return H(1300, () => cookAt(ME, o, k), k); }
+      if (k === 'egg') return dropSel();
+      if (o.fuel < 40 && bagCount(ME, 'stick')) return H(700, () => addFuel(ME, o), 'stick');
+      toast(o.fuel > 0 ? `營火燒得正旺（柴火 ${Math.round(o.fuel)}%）` : '營火熄了，選樹枝點營火可以重新點燃');
+      if (o.fuel > 0) ME.doAnim('sit', 0);
+      return;
+    case 'hut':
+      if (isNight() || ME.energy < 70) return playerSleep();
+      ME.emote('🏠'); toast('天黑後（或累的時候）在這裡睡覺，精力恢復最快'); return;
+    case 'basket': return openBasket(o);
+    case 'sprout': ME.emote('🌱'); toast(`小樹苗長大中… ${Math.round(o.grow * 100)}%`); return;
+    case 'cairn': ME.emote('✨'); toast(o.by ? `${o.by}堆的石堆，看起來很得意` : '一座石堆'); return;
+    case 'pile': return H(450, () => { const got = harvest(ME, o); if (got === 'egg') { ST.plateau = true; toast('🥚 拿到神秘蛋了！帶到燒著的營火旁邊放下', true); } });
+    default: {
+      if (!canHarvest(o)) { ME.emote('🤔'); toast(emptyMsg(o)); return; }
+      const axe = o.type === 'tree' && bagCount(ME, 'axe');
+      const dur = o.type === 'boulder' ? 1000 : o.type === 'tree' ? (axe ? 550 : 850) : 700;
+      return H(dur, () => { if (!harvest(ME, o)) ME.emote('🤔'); }, axe ? 'axe' : null);
+    }
+  }
+}
+function greet(y) {
+  ME.doAnim('wave', 1000); ME.emote('👋', 1400);
+  if (canEngage(y)) engage(y, 'chat', [{ t: 'faceY', y: ME }, { t: 'act', anim: 'wave', dur: 1000 }, { t: 'emote', e: pickR(['😄', '👋', '😊']) }]);
+  y.ai.greeted = true; ST.greet[y.name] = true; addAff(y, 5); y.social = Math.min(100, y.social + 30);
+  toast(`跟${y.name}打招呼　❤+5（再點一次可以一起玩）`);
+}
+function giveGift(y, k) {
+  if (!bagTake(ME, k)) return;
+  ME.doAnim('give', 800, null, k);
+  const liked = y.ai.per.likes.includes(k);
+  let gain = k === 'wreath' ? 25 : liked ? 12 : IT[k].food ? 6 : 3;
+  if (y.ai.gifts >= 3) gain = Math.ceil(gain / 2);
+  y.ai.gifts++;
+  bagAdd(y, k, 1); if (!IT[k].tool) y.hold = k;
+  faceY(y, ME); y.emote(k === 'wreath' ? '💖' : liked ? '😍' : gain >= 6 ? '😊' : '🤔', 1800);
+  toast(`${y.name}${liked ? '超喜歡' : '收下了'}${IT[k].n}！　❤+${gain}`);
+  addAff(y, gain); ST.gift++; bump('gift');
+  if (IT[k].food && y.hunger < 70 && canEngage(y)) engage(y, 'eat', [{ t: 'eat' }]);
+}
+function interactYeren(y) {
+  if (tag && tag.ai === y) return;
+  if (y.sleeping) { y.emote('💤'); toast(`噓…${y.name}在睡覺`); return; }
+  const k = ME.sel;
+  if (k && k !== 'egg') return giveGift(y, k);
+  if (!y.ai.greeted) return greet(y);
+  if (tag) { toast('正在玩鬼抓人中'); return; }
+  if (y.hunger < 20) { y.emote('🍖'); toast(`${y.name}肚子太餓了，沒力氣玩`); return; }
+  if (isNightFor(y)) { y.emote('🥱'); toast(`${y.name}想睡了，明天再玩`); return; }
+  startTag(y, false);
+}
+function startTag(ai, byAI) {
+  if (tag) return;
+  tag = { ai, t: 0, dur: byAI ? 16000 : 18000 };
+  engage(ai, 'play', [{ t: 'emote', e: '😝', dur: 1000 }, { t: 'flee', from: ME, dur: tag.dur + 500, tagMe: true }]);
+  toast(byAI ? `${ai.name}拍了你一下就跑！快點他追上去（雙擊＝跑步）` : `${ai.name}開始逃跑了！點他追上去（雙擊＝跑步）`, true);
+}
+function updateTag(dt) {
+  const el = $('tagbar');
+  if (!tag) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
+  tag.t += dt;
+  const ai = tag.ai, left = Math.max(0, Math.ceil((tag.dur - tag.t) / 1000));
+  el.style.display = 'block'; el.textContent = `🏃 追上${ai.name}！　${left} 秒`;
+  if (tag.t > 1600 && manh(ME.tx, ME.ty, ai.tx, ai.ty) <= 1) {
+    tag = null; ai.fleeMul = 1;
+    ai.emote('😆', 1600); ai.doAnim('cheer', 1200); ME.doAnim('cheer', 1200);
+    addAff(ai, 10); ai.fun = Math.min(100, ai.fun + 45); ST.tagWin++; bump('tag');
+    toast(`抓到${ai.name}了！　❤+10`, true);
+    confetti(ai.x, ai.y, ai.gz, 20);
+  } else if (tag.t > tag.dur) {
+    tag = null; ai.emote('😜', 1600); addAff(ai, 4); ai.fun = Math.min(100, ai.fun + 30);
+    toast(`被${ai.name}逃掉了～　❤+4`);
+  }
+}
+function playerSleep() {
+  const hut = W.objs.find(o => o.type === 'hut' && manh(o.x, o.y, ME.tx, ME.ty) <= 1);
+  const fire = W.objs.find(o => o.type === 'fire' && o.fuel > 0 && manh(o.x, o.y, ME.tx, ME.ty) <= 2);
+  ME.sleepQ = hut ? 1.4 : fire ? 1.15 : 0.9;
+  goal = null; path = [];
+  ME.doAnim('sleep', 0); ME.sleptNight = isNight() || hourNow() >= 18; ME.sleepGood = !!(hut || fire);
+  toast(ME.sleptNight ? (ME.sleepGood ? '晚安…（時間加速中，點畫面可以起床）' : '晚安…（睡在草屋或營火旁會更好）') : '打個盹…（點畫面可以起床）');
+}
+function wakePlayer() { if (ME.sleeping) { ME.anim = null; ME.sleptNight = false; } }
+function sleepCheck() {
+  if (!ME.sleeping) return;
+  const h = hourNow();
+  if (ME.sleptNight && h >= 6 && h < 12) {
+    ME.anim = null; ME.sleptNight = false;
+    if (ME.sleepGood) { ST.sleepNight++; toast('☀️ 早安！睡得好飽', true); } else toast('☀️ 早安！在草屋或營火旁睡會更舒服');
+    ME.emote('☀️');
+  } else if (!ME.sleptNight && ME.energy >= 98) { ME.anim = null; ME.emote('😊'); }
+}
+function playerEat(k) { ME.doAnim('eat', 1300, () => eatItem(ME, k), k); }
+function plantSeed() {
+  const f = ME.frontTile();
+  let spot = plantable(f[0], f[1]) ? f : null;
+  if (!spot) for (const d of DIRS) { const x = ME.tx + d.dx, y = ME.ty + d.dy; if (plantable(x, y)) { spot = [x, y]; break; } }
+  if (!spot) { toast('身邊沒有空地可以種'); return; }
+  ME.faceTile(spot[0], spot[1]);
+  ME.doAnim('work', 900, () => {
+    if (!plantable(spot[0], spot[1]) || !bagTake(ME, 'seed')) return;
+    addObj({ type: 'sprout', x: spot[0], y: spot[1], grow: 0, by: '我' }); ST.plant++; bump('plant');
+    toast('🌱 種下去了！過幾分鐘會長成果樹'); ME.emote('🌱');
+  }, 'seed');
+}
+function dropSel() {
+  const k = ME.sel; if (!k) return;
+  if (!bagTake(ME, k)) return;
+  dropNear(ME.tx, ME.ty, k, 1, '我');
+  if (k === 'egg') toast(W.objs.some(f => f.type === 'fire' && f.fuel > 0 && manh(f.x, f.y, ME.tx, ME.ty) <= 2) ? '把蛋放在營火旁了，等它變暖…' : '蛋要放在燒著的營火旁邊才會孵化');
+}
+function doCraft(r) {
+  closeSheet();
+  if (!hasNeeds(ME, r.need)) return;
+  if (r.out) {
+    ME.doAnim('work', 1200, () => {
+      if (!hasNeeds(ME, r.need)) return;
+      payNeeds(ME, r.need); give(ME, r.out, 1); ST.craft[r.id] = true; ME.emote('✨'); toast(`做好了${r.n}！`);
+    }, null);
+    return;
+  }
+  const v = validPlaceTiles(r);
+  if (!v.length) { toast(r.terrain ? '身邊沒有可以墊高的格子' : '身邊沒有空地，換個地方試試'); return; }
+  placeMode = { r, tiles: v };
+  toast(`點一下發亮的格子放置${r.n}（點別處取消）`);
+}
+function validPlaceTiles(r) {
+  const out = [];
+  for (const d of DIRS) { const x = ME.tx + d.dx, y = ME.ty + d.dy; if (!inB(x, y)) continue; if (r.terrain ? canRaise(x, y) : validBuild(x, y)) out.push([x, y]); }
+  return out;
+}
+function doPlace(x, y) {
+  const r = placeMode.r; placeMode = null;
+  ME.faceTile(x, y);
+  ME.doAnim('work', 1500, () => {
+    if (!hasNeeds(ME, r.need)) return;
+    if (r.terrain) { if (!canRaise(x, y)) return; payNeeds(ME, r.need); raiseTile(x, y); ST.raise++; floatTxt(ME, '墊高了 ↑', '#e6ddc8'); return; }
+    if (!validBuild(x, y)) return;
+    payNeeds(ME, r.need); addObj(mkStruct(r.build, x, y, '我')); ST.build[r.build] = true; ME.emote('✨');
+    toast(`蓋好了${r.n}！`);
+    if (r.build === 'fire') confetti((x + .5) * U, (y + .5) * U, topZ(x, y), 12);
+  });
+}
+function actionInfo() {
+  if (ME.sleeping) return { l: '起床', f: wakePlayer };
+  if (ME.anim && ME.anim.k === 'sit') return { l: '站起來', f: () => { ME.anim = null; } };
+  const k = ME.sel;
+  if (k) {
+    if (IT[k].food) return { l: '吃', f: () => playerEat(k) };
+    if (k === 'seed') return { l: '種下', f: plantSeed };
+    return { l: '放下', f: dropSel };
+  }
+  if (isNight() || ME.energy < 40) return { l: '睡覺', f: playerSleep };
+  return { l: '休息', f: () => { goal = null; path = []; ME.doAnim('sit', 0); } };
+}
+
+/* =========================================================
+   UI
+   ========================================================= */
+const $ = id => document.getElementById(id);
+function toast(msg, big) {
+  const box = $('toast'), d = document.createElement('div');
+  d.className = 'tst' + (big ? ' big' : ''); d.textContent = msg; box.appendChild(d);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => d.remove(), big ? 3200 : 2400);
+}
+function refreshBag() {
+  const el = $('bag'); el.innerHTML = '';
+  if (!ME.bag.length) { el.innerHTML = '<div class="slot empty">背包空空的</div>'; return; }
+  ME.bag.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'slot' + (ME.sel === s.k ? ' on' : '');
+    d.innerHTML = `<img src="${iconURL(s.k)}" alt=""><span class="c">${s.n}</span>`;
+    d.onclick = () => { ME.sel = ME.sel === s.k ? null : s.k; refreshBag(); if (ME.sel) toast(`拿著${IT[s.k].n}`); };
+    el.appendChild(d);
+  });
+}
+let lastTaskStr = '';
+function refreshTask() {
+  let tt, th;
+  if (taskIdx < TASKS.length) { const T = TASKS[taskIdx]; tt = `任務 ${taskIdx + 1}/${TASKS.length}　${T.t}${T.p ? T.p() : ''}`; th = T.h; }
+  else if (daily) { tt = daily.done ? `✅ 今日目標完成：${daily.t}` : `今日目標　${daily.t}（${Math.min(daily.n, dST[daily.k] || 0)}/${daily.n}）`; th = daily.done ? '明天早上會有新的目標' : '完成可得 ⭐'; }
+  else { tt = '自由生活中'; th = '明天早上會有新的目標'; }
+  const s = tt + '|' + th;
+  if (s !== lastTaskStr) { lastTaskStr = s; $('tt').textContent = tt; $('th').textContent = th; }
+}
+function refreshStat() {
+  const h = hourNow(), hh = Math.floor(h), mm = Math.floor((h - hh) * 6) * 10;
+  $('clk').textContent = `${isNight() ? '🌙' : h >= 17 ? '🌇' : '☀️'} 第 ${dayNum()} 天 ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  $('stars').textContent = `⭐ ${ST.stars}`;
+  $('bH').style.width = ME.hunger + '%'; $('bE').style.width = ME.energy + '%';
+  if (ME.hunger < 20 && !ME.warnH) { ME.warnH = true; toast('🍖 肚子餓了，找點東西吃吧'); } else if (ME.hunger > 35) ME.warnH = false;
+  if (ME.energy < 20 && !ME.warnE) { ME.warnE = true; toast('⚡ 好累…按「休息」坐一下或去睡覺'); } else if (ME.energy > 35) ME.warnE = false;
+}
+function buildFriends() {
+  const el = $('friends'); el.innerHTML = '';
+  for (const a of AIS) {
+    const d = document.createElement('div'); d.className = 'fr';
+    d.innerHTML = `<span class="nm" style="color:${a.col.tunic}">${a.name}</span><span class="hv"></span><span class="st"></span>`;
+    d.onclick = () => setGoal({ kind: 'yeren', y: a }, false);
+    el.appendChild(d); a.ui = d;
+  }
+}
+function refreshFriends() {
+  for (const a of AIS) {
+    a.ui.children[1].textContent = '❤ ' + Math.round(a.ai.aff['我']);
+    const st = (a.hunger < 12 ? '好餓… ' : '') + (STATUS[a.ai.goal] || '發呆');
+    if (a.ui.children[2].textContent !== st) a.ui.children[2].textContent = st;
+  }
+}
+let actCache = '';
+function refreshAct() {
+  const a = actionInfo();
+  if (a.l !== actCache) { actCache = a.l; $('act').textContent = a.l; }
+  const k = ME.sel, showDrop = k && (IT[k].food || k === 'seed') && !ME.sleeping;
+  $('bDrop').style.visibility = showDrop ? 'visible' : 'hidden';
+}
+let sheetKind = null, basketOpen = null;
+function openSheet(title, html, kind) { $('shT').textContent = title; $('shB').innerHTML = html; $('sheet').classList.add('open'); sheetKind = kind || 'info'; }
+function closeSheet() { $('sheet').classList.remove('open'); sheetKind = null; basketOpen = null; }
+function needHtml(need) {
+  return Object.entries(need).map(([k, n]) => { const have = bagCount(ME, k); return `<span class="need${have < n ? ' no' : ''}"><img src="${iconURL(k)}" alt="">${IT[k].n} ${have}/${n}</span>`; }).join('');
+}
+function openCraft() {
+  const html = RECIPES.map(r => {
+    const owned = r.out && IT[r.out].tool && bagCount(ME, r.out);
+    const can = hasNeeds(ME, r.need) && !owned;
+    return `<div class="rc"><div class="ic">${r.out ? `<img src="${iconURL(r.out)}" alt="">` : r.emo}</div>
+      <div class="inf"><b>${r.n}</b><br>${needHtml(r.need)}<br><span class="dim">${owned ? '已經有了' : r.desc}</span></div>
+      <button class="go" data-r="${r.id}" ${can ? '' : 'disabled'}>${r.out ? '製作' : '放置'}</button></div>`;
+  }).join('');
+  openSheet('🔨 製作', html, 'craft');
+  $('shB').querySelectorAll('button[data-r]').forEach(b => b.onclick = () => doCraft(RECIPES.find(r => r.id === b.dataset.r)));
+}
+function openBasket(b) {
+  basketOpen = b;
+  const slots = (list, from) => list.length ? list.map(s => `<div class="slot" data-k="${s.k}" data-f="${from}"><img src="${iconURL(s.k)}" alt=""><span class="c">${s.n}</span></div>`).join('') : '<div class="slot empty">空的</div>';
+  const html = `<div class="dim" style="font-size:12px">點籃子裡的東西＝拿一個；點背包裡的東西＝放一個進去</div>
+    <div style="margin-top:8px;font-weight:700">🧺 籃子（${basketTotal(b)}/40）</div><div class="grid">${slots(b.items, 'b')}</div>
+    <div style="font-weight:700">🎒 我的背包（${bagTotal(ME)}/${ME.cap}）</div><div class="grid">${slots(ME.bag.filter(s => s.k !== 'egg'), 'm')}</div>
+    <button class="go" id="takeFood">拿走所有食物</button>`;
+  openSheet('儲物籃', html, 'basket');
+  $('shB').querySelectorAll('.slot[data-k]').forEach(el => el.onclick = () => {
+    const k = el.dataset.k;
+    if (el.dataset.f === 'b') { if (bagTotal(ME) >= ME.cap) { toast('背包滿了'); return; } if (basketTake(b, k, 1)) bagAdd(ME, k, 1); }
+    else { if (basketAdd(b, k, 1)) bagTake(ME, k, 1); }
+    openBasket(b);
+  });
+  $('takeFood').onclick = () => {
+    for (const s of b.items.filter(s => IT[s.k].food)) { const m = Math.min(s.n, ME.cap - bagTotal(ME)); if (m > 0) { basketTake(b, s.k, m); bagAdd(ME, s.k, m); } }
+    openBasket(b);
+  };
+}
+function openHelp() {
+  const html = `<div class="help">
+  <b>怎麼玩</b><br>
+  ・點地面：走過去（連點兩下＝跑步）<br>
+  ・點樹、莓果叢、石頭、草叢：採集材料<br>
+  ・點水裡的魚影：抓魚（有魚叉比較好抓）<br>
+  ・點夥伴：打招呼；打過招呼後再點＝一起玩鬼抓人<br>
+  ・在下方背包點一樣東西拿在手上：按大按鈕「吃／種下／放下」；拿著東西點夥伴＝送禮；點營火＝加柴或烤<br>
+  ・🔨 製作工具與建築，建築要點身邊發亮的格子放<br>
+  ・天黑了到草屋或營火旁睡覺，時間會加速到天亮<br>
+  ・高低差一格可以跳，兩格以上過不去，可以堆「石階」<br><br>
+  <b>夥伴</b><br>
+  ・<span style="color:#8fae62">阿蓬</span>：溫和、愛採集，會照顧營火、把收成放進儲物籃、種樹。喜歡果子、小花、莓果<br>
+  ・<span style="color:#9aa3b3">小石</span>：好奇、愛玩，會跑去看你放的新東西、抓魚、堆石頭，偶爾找你玩。喜歡貝殼、魚、香菇<br>
+  ・兩人都最愛花圈（3 朵小花做成）<br><br>
+  <b>鍵盤</b>：方向鍵／WASD 移動、Shift 跑、空白鍵＝大按鈕、C 製作、Q 放下、數字鍵選背包<br>
+  進度會自動存在這台裝置。<br><br>
+  <button class="go" id="bNew" style="background:#6a3a2a;border-color:#a0604a">重新開始新的島</button>
+  </div>`;
+  openSheet('小野人部落', html, 'help');
+  $('bNew').onclick = () => { if (confirm('確定要放棄目前進度，開一座新的島嗎？')) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } location.reload(); } };
+}
+
+/* =========================================================
+   輸入
+   ========================================================= */
+const cvs = $('c'), ctx = cvs.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+let DPR = 1, VW = 0, VH = 0;
+function resize() { DPR = Math.min(2, window.devicePixelRatio || 1); VW = innerWidth; VH = innerHeight; cvs.width = VW * DPR; cvs.height = VH * DPR; dark.width = VW * DPR; dark.height = VH * DPR; }
+addEventListener('resize', resize); resize();
+let zoom = innerWidth < 700 ? 1.8 : 2.4, slow = false;
+const cam = { x: 0, y: 0 };
+function setZoom(z) { zoom = clamp(z, 1, 4.5); }
+const KEYDIR = { ArrowRight: 0, KeyD: 0, ArrowDown: 1, KeyS: 1, ArrowLeft: 2, KeyA: 2, ArrowUp: 3, KeyW: 3 };
+const held = new Map(); let shift = false;
+function heldDir() { let best = null, bt = -1; for (const [k, t] of held) if (t > bt) { bt = t; best = KEYDIR[k]; } return best; }
+addEventListener('keydown', e => {
+  shift = e.shiftKey;
+  if (e.code in KEYDIR) { e.preventDefault(); if (!e.repeat) held.set(e.code, performance.now()); if (ME.sleeping) wakePlayer(); placeMode = null; }
+  else if (e.code === 'Space' || e.code === 'KeyE') { e.preventDefault(); if (!e.repeat) actionInfo().f(); }
+  else if (e.code === 'KeyQ') dropSel();
+  else if (e.code === 'KeyC') { sheetKind === 'craft' ? closeSheet() : openCraft(); }
+  else if (e.code === 'Escape') { closeSheet(); placeMode = null; }
+  else if (e.code === 'KeyT' && !e.repeat) slow = !slow;
+  else if (e.code === 'Equal' || e.code === 'NumpadAdd') setZoom(zoom * 1.15);
+  else if (e.code === 'Minus' || e.code === 'NumpadSubtract') setZoom(zoom / 1.15);
+  else if (/^Digit[1-9]$/.test(e.code)) { const s = ME.bag[+e.code.slice(5) - 1]; if (s) { ME.sel = ME.sel === s.k ? null : s.k; refreshBag(); } }
+});
+addEventListener('keyup', e => { shift = e.shiftKey; held.delete(e.code); });
+addEventListener('blur', () => { held.clear(); shift = false; });
+cvs.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+$('bIn').onclick = () => setZoom(zoom * 1.2);
+$('bOut').onclick = () => setZoom(zoom / 1.2);
+$('bHelp').onclick = () => sheetKind === 'help' ? closeSheet() : openHelp();
+$('bCraft').onclick = () => sheetKind === 'craft' ? closeSheet() : openCraft();
+$('act').onclick = () => actionInfo().f();
+$('bDrop').onclick = () => dropSel();
+$('shX').onclick = closeSheet;
+
+const toWorld = (px, py) => [(px - VW / 2) / zoom + cam.x, (py - VH / 2) / zoom + cam.y];
+function pickTile(px, py) {
+  const [wx, wy] = toWorld(px, py);
+  for (let s = MAP_W + MAP_H - 2; s >= 0; s--) {
+    for (let x = Math.min(MAP_W - 1, s); x >= Math.max(0, s - MAP_H + 1); x--) {
+      const y = s - x, z = topZ(x, y);
+      const [cx, cy] = iso((x + .5) * U, (y + .5) * U, z);
+      const ax = Math.abs(wx - cx); if (ax > 32) continue;
+      const hw = 16 * (1 - ax / 32), dy = wy - cy;
+      if (dy >= -hw && dy <= (z - BASE_Z) + hw) return [x, y];
+    }
+  }
+  return null;
+}
+const HB = { tree: [15, 52], fruitTree: [14, 44], bush: [12, 17], boulder: [13, 18], grass: [10, 12], fire: [12, 18], hut: [22, 36], basket: [10, 17], cairn: [8, 21], sprout: [9, 22], pile: [9, 12] };
+function hitObject(wx, wy) {
+  let best = null, bd = -1e9;
+  for (const o of W.objs) {
+    const [bx, by] = iso((o.x + .5) * U, (o.y + .5) * U, topZ(o.x, o.y)), [w, h] = HB[o.type] || [10, 10];
+    if (Math.abs(wx - bx) < w && wy > by - h && wy < by + 7) { const d = o.x + o.y; if (d > bd) { bd = d; best = o; } }
+  }
+  return best;
+}
+function hitYeren(wx, wy) {
+  let best = null, bd = 1e9;
+  for (const y of AIS) { const [sx, sy] = iso(y.x, y.y, y.z + 20); const dx = Math.abs(wx - sx), dy = Math.abs(wy - sy); if (dx < 12 && dy < 24 && dx + dy < bd) { bd = dx + dy; best = y; } }
+  return best;
+}
+function hitFish(wx, wy) { for (const f of FISH) { const [sx, sy] = iso(f.x, f.y, WATER_Z); if (Math.hypot(wx - sx, wy - sy) < 14) return f; } return null; }
+let down = null, lastTap = { t: 0, key: '' };
+cvs.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; });
+cvs.addEventListener('pointerup', e => {
+  if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
+  if (moved < 14) onTap(e.clientX, e.clientY, e.shiftKey);
+});
+function onTap(px, py, sh) {
+  if (sheetKind) { closeSheet(); return; }
+  if (ME.sleeping) { wakePlayer(); toast('起床了'); return; }
+  const [wx, wy] = toWorld(px, py);
+  const tp = pickTile(px, py);
+  if (placeMode) {
+    const hit = tp && placeMode.tiles.find(t => t[0] === tp[0] && t[1] === tp[1]);
+    if (hit && !ME.moving) doPlace(tp[0], tp[1]); else { placeMode = null; toast('取消放置'); }
+    return;
+  }
+  let g = null, key = '';
+  const y = hitYeren(wx, wy);
+  if (y) { g = { kind: 'yeren', y }; key = 'y' + y.name; }
+  else if (pet && Math.hypot(wx - iso(pet.x, pet.y, pet.z + 6)[0], wy - iso(pet.x, pet.y, pet.z + 6)[1]) < 10) { pet.emo = { e: '❤️', t: 0, dur: 1500 }; ME.emote('😊', 1200); return; }
+  else {
+    const f = hitFish(wx, wy);
+    if (f) { g = { kind: 'fish', f, x: Math.floor(f.x / U), y: Math.floor(f.y / U) }; key = 'f'; }
+    else {
+      const o = hitObject(wx, wy);
+      if (o) { g = { kind: 'obj', o }; key = 'o' + o.id; }
+      else if (tp) {
+        const po = objAt(tp[0], tp[1]);
+        if (po) { g = { kind: 'obj', o: po }; key = 'o' + po.id; }
+        else { g = { kind: 'walk', x: tp[0], y: tp[1] }; key = 't' + tp[0] + ',' + tp[1]; }
+      }
+    }
+  }
+  if (!g) return;
+  const now = performance.now(), dbl = now - lastTap.t < 380 && key === lastTap.key;
+  lastTap = { t: now, key };
+  setGoal(g, sh || dbl || (tag && g.kind === 'yeren'));
+}
+
+/* =========================================================
+   繪製
+   ========================================================= */
+function worldXf() { ctx.setTransform(DPR * zoom, 0, 0, DPR * zoom, DPR * (VW / 2 - cam.x * zoom), DPR * (VH / 2 - cam.y * zoom)); }
+const toScreen = p => [(p[0] - cam.x) * zoom + VW / 2, (p[1] - cam.y) * zoom + VH / 2];
+const BUCKETS = Array.from({ length: MAP_W + MAP_H - 1 }, () => []);
+function render(time) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#15222b'; ctx.fillRect(0, 0, VW, VH);
+  worldXf(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const b of BUCKETS) b.length = 0;
+  for (const o of W.objs) BUCKETS[o.x + o.y].push({ d: (o.x + o.y + 1) * U + (o.type === 'pile' ? -6 : 0), f: () => drawObj(ctx, o, time) });
+  for (const f of FISH) { const tx = clamp(Math.floor(f.x / U), 0, MAP_W - 1), ty = clamp(Math.floor(f.y / U), 0, MAP_H - 1); BUCKETS[tx + ty].push({ d: f.x + f.y - 10, f: () => drawFish(ctx, f) }); }
+  for (const y of ALL) BUCKETS[clamp(y.sortKey(), 0, BUCKETS.length - 1)].push({ d: y.x + y.y + 2, f: () => y.draw(ctx) });
+  if (pet) { const tx = clamp(Math.floor(pet.x / U), 0, MAP_W - 1), ty = clamp(Math.floor(pet.y / U), 0, MAP_H - 1); BUCKETS[tx + ty].push({ d: pet.x + pet.y + 1, f: () => drawPet(ctx) }); }
+  const pulse = 0.75 + 0.2 * Math.sin(time * 0.008);
+  for (let s = 0; s <= MAP_W + MAP_H - 2; s++) {
+    for (let x = Math.max(0, s - MAP_H + 1); x <= Math.min(MAP_W - 1, s); x++) {
+      const y = s - x; drawTile(ctx, x, y, time);
+      if (target && target.x === x && target.y === y) tileDiamond(ctx, x, y, targetBad > 0 ? 'rgba(255,90,70,.9)' : 'rgba(255,255,255,.8)', pulse);
+      if (placeMode && placeMode.tiles.some(t => t[0] === x && t[1] === y)) { tileDiamond(ctx, x, y, 'rgba(150,255,140,.95)', 0.85 + 0.1 * Math.sin(time * 0.01), 1.8); }
+    }
+    const L = BUCKETS[s];
+    if (L.length) { L.sort((a, b) => a.d - b.d); for (const e of L) e.f(); }
+  }
+  drawFx(ctx);
+  drawNight(time);
+  worldXf(); drawOverlays(time);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); drawArrow(time);
+}
+function drawNight(time) {
+  const dk = darkness(), tint = duskTint();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (tint > 0.005) { ctx.fillStyle = `rgba(255,120,50,${tint})`; ctx.fillRect(0, 0, VW, VH); }
+  if (dk < 0.01) return;
+  const d = dctx; d.setTransform(DPR, 0, 0, DPR, 0, 0);
+  d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, VW, VH);
+  d.fillStyle = `rgba(8,14,40,${dk})`; d.fillRect(0, 0, VW, VH);
+  d.globalCompositeOperation = 'destination-out';
+  const light = (wx, wy, wz, r, a) => {
+    const [sx, sy] = toScreen(iso(wx, wy, wz)), R = r * zoom, g = d.createRadialGradient(sx, sy, 0, sx, sy, R);
+    g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.55, `rgba(0,0,0,${a * 0.65})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    d.fillStyle = g; d.beginPath(); d.arc(sx, sy, R, 0, TAU); d.fill();
+  };
+  const fires = [];
+  for (const o of W.objs) {
+    if (o.type === 'fire' && o.fuel > 0) { const fl = 1 + Math.sin(time * 0.013 + o.id) * 0.04 + Math.sin(time * 0.031) * 0.03; const r = 88 * fl * (0.6 + 0.4 * Math.min(1, o.fuel / 30)); light((o.x + .5) * U, (o.y + .5) * U, topZ(o.x, o.y) + 8, r, 1); fires.push([o, r]); }
+    if (o.type === 'pile' && o.k === 'egg') light((o.x + .5) * U, (o.y + .5) * U, topZ(o.x, o.y) + 6, 30, 0.6);
+  }
+  for (const y of ALL) light(y.x, y.y, y.z + 16, 26, 0.5);
+  d.globalCompositeOperation = 'source-over';
+  ctx.drawImage(dark, 0, 0, VW, VH);
+  ctx.globalCompositeOperation = 'lighter';
+  for (const [o, r] of fires) {
+    const [sx, sy] = toScreen(iso((o.x + .5) * U, (o.y + .5) * U, topZ(o.x, o.y) + 6)), R = r * 0.7 * zoom, g = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+    g.addColorStop(0, `rgba(255,140,50,${0.22 * dk / 0.7})`); g.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+function bubble(c, x, y, e, a) {
+  c.globalAlpha = a;
+  c.fillStyle = 'rgba(255,253,245,.95)'; c.strokeStyle = 'rgba(60,40,20,.5)'; c.lineWidth = 0.6;
+  c.beginPath(); c.roundRect ? c.roundRect(x - 8, y - 15, 16, 13, 4) : c.rect(x - 8, y - 15, 16, 13); c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(x - 2, y - 2.2); c.lineTo(x, y + 1); c.lineTo(x + 2, y - 2.2); c.closePath(); c.fill();
+  c.font = `9px ${EMO_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#000';
+  c.fillText(e, x, y - 8.3);
+  c.globalAlpha = 1;
+}
+function drawOverlays(time) {
+  for (const o of W.objs) {
+    if (o.type === 'pile' && o.k === 'egg' && o.warm > 0) {
+      const [x, y] = iso((o.x + .5) * U, (o.y + .5) * U, topZ(o.x, o.y) + 20), k = Math.min(1, o.warm / 40000);
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, 5, -Math.PI / 2, -Math.PI / 2 + k * TAU); ctx.stroke();
+    }
+  }
+  ctx.font = '700 6.5px system-ui,"PingFang TC",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const y of ALL) {
+    const h = y.pose.head, [bx, by] = iso(h[0], h[1], h[2] + RV + 4);
+    if (y.ai) { ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.strokeText(y.name, bx, by - 1); ctx.fillStyle = '#fff4dc'; ctx.fillText(y.name, bx, by - 1); }
+    if (y.emo) { const k = y.emo.t / y.emo.dur, a = Math.min(1, k * 6, (1 - k) * 5); bubble(ctx, bx, by - (y.ai ? 5 : 0) - Math.min(1, k * 6) * 2, y.emo.e, a); ctx.font = '700 6.5px system-ui,"PingFang TC",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; }
+  }
+  if (pet && pet.emo) { const [bx, by] = iso(pet.x, pet.y, pet.z + 20); const k = pet.emo.t / pet.emo.dur; bubble(ctx, bx, by, pet.emo.e, Math.min(1, k * 6, (1 - k) * 5)); }
+  ctx.font = '800 7px system-ui,"PingFang TC",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of floaters) {
+    const [x, y] = iso(f.x, f.y, f.z), k = f.t / f.life; ctx.globalAlpha = Math.min(1, (1 - k) * 3);
+    ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(40,20,10,.8)'; ctx.strokeText(f.txt, x, y); ctx.fillStyle = f.c; ctx.fillText(f.txt, x, y);
+  }
+  ctx.globalAlpha = 1;
+}
+function taskTarget() {
+  if (taskIdx >= TASKS.length) return null;
+  const id = TASKS[taskIdx].id;
+  if (id !== 'plateau' && id !== 'egg') return null;
+  const egg = W.objs.find(o => o.type === 'pile' && o.k === 'egg');
+  if (egg && !(id === 'egg' && egg.warm > 0)) return { p: iso((egg.x + .5) * U, (egg.y + .5) * U, topZ(egg.x, egg.y) + 10), e: '🥚' };
+  if (id === 'egg' && bagCount(ME, 'egg')) { const f = W.objs.find(o => o.type === 'fire'); if (f) return { p: iso((f.x + .5) * U, (f.y + .5) * U, topZ(f.x, f.y) + 12), e: '🔥' }; }
+  return null;
+}
+function drawArrow(time) {
+  const T = taskTarget(); if (!T) return;
+  const [sx, sy] = toScreen(T.p), m = 46;
+  const c = ctx; c.font = `18px ${EMO_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  if (sx > m && sx < VW - m && sy > m + 60 && sy < VH - m - 60) {
+    const b = Math.sin(time * 0.006) * 3; c.fillStyle = 'rgba(255,230,150,.95)';
+    c.beginPath(); c.moveTo(sx - 6, sy - 26 + b); c.lineTo(sx + 6, sy - 26 + b); c.lineTo(sx, sy - 17 + b); c.closePath(); c.fill();
+    return;
+  }
+  const cx = VW / 2, cy = VH / 2, a = Math.atan2(sy - cy, sx - cx);
+  const ex = clamp(cx + Math.cos(a) * VW, m, VW - m), ey = clamp(cy + Math.sin(a) * VH, m + 70, VH - m - 70);
+  c.save(); c.translate(ex, ey);
+  c.fillStyle = 'rgba(16,24,30,.8)'; c.beginPath(); c.arc(0, 0, 17, 0, TAU); c.fill();
+  c.fillText(T.e, 0, 1);
+  c.rotate(a); c.fillStyle = 'rgba(255,220,140,.95)'; c.beginPath(); c.moveTo(24, 0); c.lineTo(16, -6); c.lineTo(16, 6); c.closePath(); c.fill();
+  c.restore();
+}
+
+/* =========================================================
+   存檔
+   ========================================================= */
+function makeYerens(saved) {
+  const spotNear = (dx, dy) => {
+    const tx = clamp(START[0] + dx, 1, MAP_W - 2), ty = clamp(START[1] + dy, 1, MAP_H - 2);
+    const r = seek({ tx, ty }, (x, y) => !isBlocked(x, y) && !map[y][x].water && !yerenAt(x, y, null) ? [x, y] : null, { maxD: 12 });
+    return r ? r.target : START;
+  };
+  ALL = []; AIS = [];
+  ME = new Yeren(START[0], START[1], { name: '我', me: true, cap: 24 });
+  ALL.push(ME);
+  for (const per of PERSONAS) {
+    const [x, y] = spotNear(per.spawn[0], per.spawn[1]);
+    const a = new Yeren(x, y, { name: per.name, col: per.col, hair: per.hair, band: per.band, cap: 8 });
+    a.hunger = rnd(65, 90);
+    a.ai = { per, plan: [], cur: null, goal: 'idle', seen: new Set(), thinkT: 0, aff: { '我': 20 }, giftCD: 60000, greeted: false, gifts: 0 };
+    for (const o of PERSONAS) if (o !== per) a.ai.aff[o.name] = 50;
+    AIS.push(a); ALL.push(a);
+  }
+  if (saved) saved.forEach((s, i) => {
+    const y = ALL[i]; if (!y || !s) return;
+    if (inB(s.tx, s.ty) && !isBlocked(s.tx, s.ty)) { y.tx = y.fx = s.tx; y.ty = y.fy = s.ty; y.x = (s.tx + .5) * U; y.y = (s.ty + .5) * U; y.gz = groundZ(s.tx, s.ty); }
+    y.face = y.faceT = s.face || 0;
+    Object.assign(y, { hunger: s.hunger, energy: s.energy, fun: s.fun, social: s.social });
+    y.bag = (s.bag || []).filter(b => IT[b.k] && b.n > 0); y.sel = s.sel && bagCount(y, s.sel) ? s.sel : null;
+    if (y.ai && s.ai) Object.assign(y.ai, { aff: Object.assign(y.ai.aff, s.ai.aff), greeted: !!s.ai.greeted, gifts: s.ai.gifts || 0, giftCD: s.ai.giftCD || 0 });
+    y.computePose(); y.resetHair(); y.updateLayers(true);
+  });
+}
+function saveGame() {
+  try {
+    const d = {
+      v: 1, seed: SEED, clock, gameT, lastDay, taskIdx, ST, dST, daily, nid: W.nid,
+      lv: map.map(r => r.map(t => t.water ? -1 : t.lv)),
+      objs: W.objs.map(o => { const c = Object.assign({}, o); if (c.type === 'hut') c.occ = null; delete c.shake; return c; }),
+      ys: ALL.map(y => ({ tx: y.tx, ty: y.ty, face: y.faceT, hunger: y.hunger, energy: y.energy, fun: y.fun, social: y.social, bag: y.bag, sel: y.sel || null, ai: y.ai ? { aff: y.ai.aff, greeted: y.ai.greeted, gifts: y.ai.gifts, giftCD: y.ai.giftCD } : null })),
+      pet: pet ? { x: pet.x, y: pet.y } : null,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(d));
+  } catch (e) { }
+}
+function loadGame() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { d = null; }
+  if (!d || d.v !== 1) return false;
+  try {
+    SEED = d.seed; genTerrain(SEED);
+    d.lv.forEach((r, y) => r.forEach((v, x) => { const t = map[y][x]; if (v < 0) { t.water = true; t.lv = 0; } else { t.water = false; t.lv = v; } }));
+    resetWorld(); d.objs.forEach(o => addObj(o)); W.nid = Math.max(W.nid, d.nid || 1);
+    clock = d.clock; gameT = d.gameT || 0; lastDay = d.lastDay || dayNum(); taskIdx = d.taskIdx || 0;
+    ST = Object.assign(freshStats(), d.ST); dST = d.dST || {}; daily = d.daily || null;
+    makeYerens(d.ys);
+    if (d.pet) { makePet(d.pet.x, d.pet.y); }
+    return true;
+  } catch (e) { console.warn('load failed', e); return false; }
+}
+function newGame() {
+  SEED = (Math.random() * 1e9) | 0;
+  const R = genTerrain(SEED); resetWorld(); placeObjects(R);
+  clock = DAY_MS * (1.5 / 24); gameT = 0; lastDay = 1; taskIdx = 0; ST = freshStats(); dST = {}; daily = null; pet = null;
+  makeYerens(null);
+}
+
+/* =========================================================
+   主迴圈
+   ========================================================= */
+const hadSave = loadGame();
+if (!hadSave) newGame();
+initFishTiles(); FISH.length = 0; for (let i = 0; i < 6; i++) spawnFish();
+{ const [cx, cy] = iso(ME.x, ME.y, ME.gz); cam.x = cx; cam.y = cy - 20; }
+buildFriends(); refreshBag(); refreshTask();
+if (!hadSave) openHelp(); else toast(`歡迎回來！第 ${dayNum()} 天`);
+addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+addEventListener('pagehide', saveGame);
+
+let last = performance.now(), uiT = 0, saveT = 0;
+function loop(now) {
+  let rdt = Math.min(50, now - last); last = now;
+  if (slow) rdt *= 0.25;
+  const wdt = rdt * timeScale();
+  gameT += rdt; clock += wdt;
+  if (dayNum() > lastDay) newDay();
+  updateWorld(wdt, rdt);
+  for (const y of ALL) updateNeeds(y, wdt);
+  ME.hold = ME.sel;
+  for (const y of ALL) y.update(rdt);
+  control();
+  for (const a of AIS) aiUpdate(a, rdt);
+  updateFish(rdt); updatePet(rdt); updateFx(rdt); updateTag(rdt); sleepCheck();
+  if (!ST.plateau && map[ME.ty][ME.tx].plat) { ST.plateau = true; toast('⛰️ 登上高台了！上面有一顆發亮的蛋…', true); ME.doAnim('cheer', 1200); }
+  if (placeMode && (ME.moving || manh(ME.tx, ME.ty, ME.fx, ME.fy) > 0 && ME.moving)) placeMode = null;
+  if (targetBad > 0) { targetBad -= rdt; if (targetBad <= 0) target = null; }
+  const [cx, cy] = iso(ME.x, ME.y, ME.gz), k = 1 - Math.exp(-rdt * 0.006);
+  cam.x += (cx - cam.x) * k; cam.y += (cy - 20 - cam.y) * k;
+  render(gameT);
+  uiT -= rdt; if (uiT <= 0) { uiT = 200; refreshStat(); refreshFriends(); refreshAct(); checkTasks(); refreshTask(); }
+  saveT += rdt; if (saveT > 15000) { saveT = 0; saveGame(); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
